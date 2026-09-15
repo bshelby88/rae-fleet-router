@@ -1,0 +1,18 @@
+{
+  "name": "rae-fleet-router",
+  "version": "1.0.0",
+  "description": "RAE Fleet Router — Agent-to-Agent economy demo. Composes multiple x402 services into one paid bundle.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --check index.js",
+    "start": "node index.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@x402/core": "^2.12.0",
+    "@x402/evm": "^2.12.0",
+    "@x402/express": "^2.12.0",
+    "@x402/extensions": "^2.12.0",
+    "express": "^5.2.1"
+  }
+}

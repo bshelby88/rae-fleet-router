@@ -1,0 +1,33 @@
+app = "rae-fleet-router"
+
+[build]
+  builder = "paketobuildpacks/builder:base"
+  buildpacks = ["gcr.io/paketo-buildpacks/nodejs"]
+
+[env]
+  PORT = "3000"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+    force_https = true
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+  [[services.checks]]
+    interval = "15s"
+    grace_period = "5s"
+    method = "get"
+    path = "/health"
+    timeout = "2s"
+    protocol = "http"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
