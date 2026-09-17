@@ -8,9 +8,21 @@ const { privateKeyToAccount } = require("viem/accounts");
 const PAY_TO = process.env.X402_PAY_TO;
 if (!PAY_TO) { console.error("FATAL: X402_PAY_TO required"); process.exit(1); }
 
-// Router's own wallet for paying downstream services
+// Router's own wallet for paying downstream services.
+// Signer selection (opt-in): PRIVY_APP_ID/PRIVY_APP_SECRET/PRIVY_WALLET_ID takes
+// precedence — the Privy server wallet signs USDC EIP-712 authorizations with no raw
+// key in app env (policy-scoped; same pattern as escrow-x402 679bb12e). Absent those
+// vars, ROUTER_KEY (raw key) is required exactly as before.
+let PRIVY_ADAPTER = null;
+try {
+  const { PrivyAdapter } = require("@opensea/wallet-adapters");
+  PRIVY_ADAPTER = PrivyAdapter.fromEnv();
+  console.log("→ Privy adapter configured (PRIVY_* env vars present)");
+} catch (e) {
+  PRIVY_ADAPTER = null; // env vars absent → raw-key path (expected pre-Privy state)
+}
 const ROUTER_KEY = process.env.ROUTER_KEY;
-if (!ROUTER_KEY) { console.error("FATAL: ROUTER_KEY required"); process.exit(1); }
+if (!ROUTER_KEY && !PRIVY_ADAPTER) { console.error("FATAL: ROUTER_KEY required (or set PRIVY_* env vars)"); process.exit(1); }
 
 const CDP_ID = process.env.CDP_API_KEY_ID;
 const CDP_SEC = process.env.CDP_API_KEY_SECRET;
@@ -32,8 +44,29 @@ x402Server.register(NETWORK, new ExactEvmScheme());
   console.warn("x402 init failed; lazy init on first paid request");
 })();
 
-const routerAccount = privateKeyToAccount(ROUTER_KEY.startsWith("0x") ? ROUTER_KEY : "0x" + ROUTER_KEY);
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+
+// Signer abstraction: raw-key viem account, or Privy adapter (EIP-712 via signTypedData).
+// getSignerAddress() resolves the wallet once; signTypedDataAuth() signs the EIP-3009
+// TransferWithAuthorization either way. Privy takes precedence when configured.
+let routerAccount = null;
+if (ROUTER_KEY) {
+  routerAccount = privateKeyToAccount(ROUTER_KEY.startsWith("0x") ? ROUTER_KEY : "0x" + ROUTER_KEY);
+}
+let privyAddress = null;
+async function getSignerAddress() {
+  if (PRIVY_ADAPTER) {
+    if (!privyAddress) privyAddress = await PRIVY_ADAPTER.getAddress();
+    return privyAddress;
+  }
+  if (routerAccount) return routerAccount.address;
+  throw new Error("No signer configured");
+}
+async function signTypedDataAuth({ domain, types, primaryType, message }) {
+  if (PRIVY_ADAPTER) return PRIVY_ADAPTER.signTypedData({ domain, types, primaryType, message });
+  if (routerAccount) return routerAccount.signTypedData({ domain, types, primaryType, message });
+  throw new Error("No signer configured");
+}
 
 // Downstream services (the fleet we're composing)
 const FLEET = {
@@ -60,17 +93,21 @@ async function callFleetService(name, payload) {
     const req = JSON.parse(Buffer.from(prHeader, "base64").toString("utf8"));
     const acc = req.accepts[0];
 
-    // 2) sign EIP-3009 authorization
+    // 2) sign EIP-3009 authorization (signer: Privy adapter if configured, else raw key).
+    //    uint256 fields are carried as decimal strings: identical EIP-712 encoding,
+    //    JSON-safe for the Privy adapter (BigInt would break JSON.stringify), and
+    //    accepted by viem's signTypedData on the raw-key path.
     const { keccak256, concat, toHex, pad } = await import("viem");
+    const from = await getSignerAddress();
     const validBefore = BigInt(Math.floor(Date.now()/1000) + 600);
-    const nonce = keccak256(concat([toHex(Date.now()), pad(routerAccount.address)]));
-    const auth = { from: routerAccount.address, to: acc.payTo, value: BigInt(acc.amount), validAfter: 0n, validBefore, nonce };
+    const nonce = keccak256(concat([toHex(Date.now()), pad(from)]));
+    const auth = { from, to: acc.payTo, value: String(acc.amount), validAfter: "0", validBefore: validBefore.toString(), nonce };
     const domain = { name: "USD Coin", version: "2", chainId: 8453, verifyingContract: USDC };
     const types = { TransferWithAuthorization: [
       { name: "from", type: "address" }, { name: "to", type: "address" }, { name: "value", type: "uint256" },
       { name: "validAfter", type: "uint256" }, { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" },
     ]};
-    const sig = await routerAccount.signTypedData({ domain, types, primaryType: "TransferWithAuthorization", message: auth });
+    const sig = await signTypedDataAuth({ domain, types, primaryType: "TransferWithAuthorization", message: auth });
     const paymentPayload = {
       x402Version: 2,
       resource: req.resource,
