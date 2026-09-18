@@ -1,8 +1,5 @@
 app = "rae-fleet-router"
 
-[build]
-  builder = "paketobuildpacks/builder:base"
-  buildpacks = ["gcr.io/paketo-buildpacks/nodejs"]
 
 [env]
   PORT = "3000"
