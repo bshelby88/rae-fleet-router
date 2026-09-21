@@ -3,6 +3,7 @@ app = "rae-fleet-router"
 
 [env]
   PORT = "3000"
+  X402_PAY_TO = "0xfbc0eb7811D477E55261d956dF39f0046E192240"
 
 [experimental]
   auto_rollback = true
