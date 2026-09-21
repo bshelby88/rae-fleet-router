@@ -68,11 +68,19 @@ async function signTypedDataAuth({ domain, types, primaryType, message }) {
   throw new Error("No signer configured");
 }
 
-// Downstream services (the fleet we're composing)
+// Downstream services (the fleet we're composing).
+// NOTE(STRAT-26, live crawl 2026-09-21): tradingagents' /api/consensus does not exist —
+// its /.well-known/x402.json exposes /api/analyze-ticker and /api/analyze-arbitrage at
+// $0.05 (not $0.10 as previously coded). The old URL 404s, so the third leg of
+// POST /api/fleet-bundle was silently unbilled. `price` is display-only: callFleetService
+// always pays the live 402 challenge amount.
 const FLEET = {
   "nft-alpha-x402": { url: "https://nft-alpha-x402.fly.dev/api/nft-signal", price: 20000 },
   "power-pack-x402": { url: "https://power-pack-x402.fly.dev/api/score-email", price: 10000 },
-  "tradingagents-x402": { url: "https://tradingagents-x402.fly.dev/api/consensus", price: 100000 },
+  "tradingagents-x402": { url: "https://tradingagents-x402.fly.dev/api/analyze-ticker", price: 50000 },
+  "opensea-data-x402": { url: "https://opensea-data-x402.fly.dev/api", price: 10000 },
+  "suprapack-x402": { url: "https://suprapack-x402.fly.dev/api/find-skill", price: 30000 },
+  "nanobanana-x402": { url: "https://nanobanana-x402.fly.dev/api/generate-image", price: 10000 },
 };
 
 async function callFleetService(name, payload) {
@@ -174,6 +182,96 @@ const bundleRoute = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// STRAT-26 bundle ladder — curated bundles each priced STRICTLY BELOW the sum
+// of their live per-call parts (verified against /pricing.md +
+// /.well-known/x402.json on 2026-09-21T12:15Z). Single source of truth: the
+// /pricing.md, /llms.txt copy and the registered x402 routes are all generated
+// from this table, so no advertised bundle can ever exist without a route.
+// ---------------------------------------------------------------------------
+const BUNDLE_LADDER = [
+  {
+    id: "market-starter", price: "$0.02",
+    title: "Market Starter",
+    desc: "OpenSea raw collection data (floor/listings/offers/traits) + real-time NFT market signals for one collection.",
+    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02]],
+  },
+  {
+    id: "market-intel-trio", price: "$0.05",
+    title: "Market Intel Trio",
+    desc: "The flagship starter trio: opensea-data + nft-alpha + suprapack (matched Claude Code skills) in one call.",
+    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03]],
+  },
+  {
+    id: "full-fleet-sampler", price: "$0.06",
+    title: "Full Fleet Sampler",
+    desc: "One call to each of the five sub-$0.03 fleet services: data, signals, skills, image generation, outreach scoring.",
+    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
+  },
+];
+
+function bundleSumOfParts(b) {
+  return b.parts.reduce((s, [, p]) => s + p, 0);
+}
+
+function bundlePayloadFor(name, body) {
+  const topic = String(body.topic || "");
+  const collection = (topic || "boredapeyachtclub").toLowerCase().replace(/\s+/g, "-");
+  switch (name) {
+    case "opensea-data-x402": return { collection, action: body.action || "floor" };
+    case "nft-alpha-x402": return { collection };
+    case "suprapack-x402": return { query: body.query || topic };
+    case "nanobanana-x402": return { prompt: body.prompt || `Illustration for topic: ${topic}` };
+    case "power-pack-x402": return { subject: body.email_subject || "Quick question", body: body.email_body || "Hi, I wanted to reach out about our product." };
+    default: return { topic };
+  }
+}
+
+function makeBundleHandler(b) {
+  return async (req, res) => {
+    const body = req.body || {};
+    if (!body.topic || typeof body.topic !== "string") {
+      return res.status(400).json({ ok: false, error: "topic (string) required" });
+    }
+    const bundle = {};
+    for (const [name] of b.parts) {
+      bundle[name.replace("-x402", "")] = await callFleetService(name, bundlePayloadFor(name, body));
+    }
+    res.json({ ok: true, bundle_id: b.id, bundle, meta: { topic: body.topic, services_called: b.parts.length, timestamp: new Date().toISOString() } });
+  };
+}
+
+function pricingMarkdown() {
+  const rows = BUNDLE_LADDER.map(b => {
+    const sum = bundleSumOfParts(b);
+    const parts = b.parts.map(([n, p]) => `${n.replace("-x402", "")} $${p.toFixed(2)}`).join(" + ");
+    return `| POST /api/bundle/${b.id} | ${parts} | $${sum.toFixed(2)} | ${b.price} | ${b.desc} |`;
+  }).join("\n");
+  return [
+    "# Pricing — RAE Fleet Router",
+    "",
+    "All prices USDC on Base (eip155:8453), pay-per-call via x402, no API key. Every x402 paid",
+    "request first receives HTTP 402 with a `PAYMENT-REQUIRED` challenge; sign a USDC",
+    "transferWithAuthorization and re-send with the `PAYMENT-SIGNATURE` header.",
+    "",
+    "## Flagship",
+    "",
+    "- **`POST /api/fleet-bundle`** — $0.10 USDC — compose nft-alpha + power-pack + tradingagents",
+    "  into one research call.",
+    "",
+    "## Bundle ladder (each bundle priced below the sum of its parts)",
+    "",
+    "| Endpoint | Parts (live per-call price) | Sum of parts | Bundle price | What you get |",
+    "|---|---|---|---|---|",
+    rows,
+    "",
+    "Machine contract: [/openapi.json](https://rae-fleet-router.fly.dev/openapi.json) and",
+    "[/.well-known/x402.json](https://rae-fleet-router.fly.dev/.well-known/x402.json). The live",
+    "x402 payment challenge is authoritative if a configured price changes.",
+    "",
+  ].join("\n");
+}
+
 function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   const x402Manifest = { version: "2.0.0", service: { name: serviceInfo.name, description: serviceInfo.description, contact: "jadedfocus@gmail.com", operator: "Royal Agentic Enterprises" }, endpoints: {} };
   const openapi = { openapi: "3.1.0", info: { title: serviceInfo.title, description: serviceInfo.description, version: "1.0.0", contact: { email: "jadedfocus@gmail.com" },
@@ -187,7 +285,7 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
     if (!openapi.paths[path]) openapi.paths[path] = {};
     const rawPrice = rv.accepts && rv.accepts.price ? String(rv.accepts.price).replace("$","") : "0.10";
     openapi.paths[path][method] = {
-      summary: rv.description ? rv.description.split(".")[0] : `Endpoint ${path}`,
+      summary: rv.description ? rv.description.split(/\.(?:\s|$)/)[0] : `Endpoint ${path}`,
       description: rv.description,
       "x-payment-info": { price: { mode: "fixed", currency: "USD", amount: Number(rawPrice).toFixed(6) }, protocols: [{ x402: {} }] },
       ...(rv.requestSchema ? { requestBody: { required: true, content: { "application/json": { schema: rv.requestSchema } } } } : {}),
@@ -197,12 +295,28 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/.well-known/x402.json", (req, res) => res.json(x402Manifest));
   serverApp.get("/.well-known/x402", (req, res) => res.json(x402Manifest));
   serverApp.get("/openapi.json", (req, res) => res.json(openapi));
+  serverApp.get("/pricing.md", (req, res) => res.type("text/markdown; charset=utf-8").send(pricingMarkdown()));
   serverApp.get("/llms.txt", (req, res) => {
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n- POST /api/fleet-bundle: $0.10 USDC — Compose multiple RAE fleet services into one bundle.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.`);
+    const lines = Object.entries(routes).map(([rk, rv]) =>
+      `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.`);
   });
 }
 
-registerDiscoveryEndpoints(app, { "POST /api/fleet-bundle": bundleRoute }, {
+// One routes map feeds the manifest, OpenAPI, llms.txt, paymentMiddleware, and the
+// Express handlers — registered price and advertised price cannot diverge.
+const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute };
+for (const b of BUNDLE_LADDER) {
+  PAID_ROUTES[`POST /api/bundle/${b.id}`] = {
+    accepts: { scheme: "exact", price: b.price, network: NETWORK, payTo: PAY_TO },
+    description: b.desc,
+    mimeType: "application/json",
+    requestSchema: BUNDLE_INPUT_SCHEMA,
+    responseSchema: BUNDLE_OUTPUT_SCHEMA,
+  };
+}
+
+registerDiscoveryEndpoints(app, PAID_ROUTES, {
   name: "rae-fleet-router",
   title: "RAE Fleet Router — Agent-to-Agent Bundle",
   description: "Compose multiple RAE fleet services into one paid bundle via x402. Demonstrates agent-to-agent economy.",
@@ -216,7 +330,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(paymentMiddleware({ "POST /api/fleet-bundle": bundleRoute }, x402Server, undefined, undefined, false));
+app.use(paymentMiddleware(PAID_ROUTES, x402Server, undefined, undefined, false));
 
 app.post("/api/fleet-bundle", async (req, res) => {
   const { topic, email_subject = "Quick question", email_body = "Hi, I wanted to reach out about our product." } = req.body || {};
@@ -225,10 +339,19 @@ app.post("/api/fleet-bundle", async (req, res) => {
   const bundle = {};
   bundle.nft_signals = await callFleetService("nft-alpha-x402", { collection: topic.toLowerCase().replace(/\s+/g, "-") });
   bundle.email_score = await callFleetService("power-pack-x402", { subject: email_subject, body: email_body });
-  bundle.market_consensus = await callFleetService("tradingagents-x402", { topic });
+  bundle.market_consensus = await callFleetService("tradingagents-x402", { ticker: topic.toUpperCase().replace(/\s+/g, "") });
 
-  res.json({ ok: true, bundle, meta: { topic, services_called: Object.keys(FLEET).length, timestamp: new Date().toISOString() } });
+  res.json({ ok: true, bundle, meta: { topic, services_called: 3, timestamp: new Date().toISOString() } });
 });
 
+for (const b of BUNDLE_LADDER) {
+  app.post(`/api/bundle/${b.id}`, makeBundleHandler(b));
+}
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`→ RAE Fleet Router listening on :${PORT} (payTo ${PAY_TO})`));
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`→ RAE Fleet Router listening on :${PORT} (payTo ${PAY_TO})`));
+}
+
+// Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math).
+module.exports = { BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET };
