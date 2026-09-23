@@ -330,6 +330,53 @@ app.use((req, res, next) => {
   next();
 });
 
+// ---------------------------------------------------------------------------
+// EXEC-41 — 400-before-402 pre-validation for the ladder routes. A body that
+// the handler cannot serve must never see a payment challenge: paying and then
+// hitting the handler's 400 would charge the buyer without service. This
+// middleware is registered ABOVE paymentMiddleware() so invalid requests
+// short-circuit with 400 before the gate (matching suprapack-x402's observed
+// live order and the STRAT-28 §5.1 promise for future pack routes). Scope is
+// strictly the three /api/bundle/<id> ladder routes; valid bodies fall
+// through to the unchanged 402 gate, and the flagship /api/fleet-bundle is
+// untouched here (tracked separately). Validation mirrors the advertised
+// BUNDLE_INPUT_SCHEMA machine contract: topic required (non-empty string);
+// email_subject/email_body optional but type/length-checked when present.
+const BUNDLE_ID_SET = new Set(BUNDLE_LADDER.map(b => b.id));
+function bundleBodyErrors(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return ["JSON object body required"];
+  }
+  const errors = [];
+  if (typeof body.topic !== "string" || body.topic.trim().length === 0) {
+    errors.push("topic (non-empty string) required");
+  }
+  if (body.email_subject !== undefined && (typeof body.email_subject !== "string" || body.email_subject.length < 3)) {
+    errors.push("email_subject must be a string of at least 3 characters when present");
+  }
+  if (body.email_body !== undefined && (typeof body.email_body !== "string" || body.email_body.length < 20)) {
+    errors.push("email_body must be a string of at least 20 characters when present");
+  }
+  return errors;
+}
+app.use((req, res, next) => {
+  if (req.method !== "POST") return next();
+  const m = /^\/api\/bundle\/([^/]+)\/?$/.exec(req.path);
+  if (!m || !BUNDLE_ID_SET.has(m[1])) return next();
+  const errors = bundleBodyErrors(req.body);
+  if (errors.length) {
+    return res.status(400).json({
+      ok: false,
+      error: errors.join("; "),
+      charged: false,
+      "x-payment-challenge": false,
+      expected: "topic (non-empty string); optional email_subject (>=3 chars), email_body (>=20 chars)",
+      retry: "Fix the JSON body and re-send UNPAID — 400 responses are never billed. Machine contract: /openapi.json",
+    });
+  }
+  next();
+});
+
 app.use(paymentMiddleware(PAID_ROUTES, x402Server, undefined, undefined, false));
 
 app.post("/api/fleet-bundle", async (req, res) => {
@@ -353,5 +400,6 @@ if (require.main === module) {
   app.listen(PORT, () => console.log(`→ RAE Fleet Router listening on :${PORT} (payTo ${PAY_TO})`));
 }
 
-// Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math).
-module.exports = { BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET };
+// Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math) and
+// test_prevalidation.cjs (EXEC-41 charging-order acceptance).
+module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors };
