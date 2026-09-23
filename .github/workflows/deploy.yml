@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: node --check index.js
+      - run: npm test
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only
         env:
