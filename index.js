@@ -265,9 +265,15 @@ function pricingMarkdown() {
     "|---|---|---|---|---|",
     rows,
     "",
+    "Payment parameters — all routes: scheme `exact`, network `eip155:8453` (Base mainnet),",
+    "USDC `" + MAINNET_USDC + "` (6 decimals), payTo `" + CANONICAL_PAY_TO + "`.",
+    "",
     "Machine contract: [/openapi.json](https://rae-fleet-router.fly.dev/openapi.json) and",
     "[/.well-known/x402.json](https://rae-fleet-router.fly.dev/.well-known/x402.json). The live",
     "x402 payment challenge is authoritative if a configured price changes.",
+    "",
+    "Try before you pay: **GET [/sample](https://rae-fleet-router.fly.dev/sample)** — free,",
+    "shape-accurate synthetic bundle-compose demo (no payment, never a 402 challenge).",
     "",
     "Payment failed? **GET [/pay-failed](https://rae-fleet-router.fly.dev/pay-failed)** —",
     "\"fix in 30 seconds\" recovery recipes for the 4 real failure modes (machine-readable",
@@ -411,6 +417,13 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
       responses: { "200": { description: "Recovery copy (text/markdown, or application/json with ?format=json)" } },
     },
   };
+  openapi.paths["/sample"] = {
+    get: {
+      summary: "Free synthetic bundle-compose demo (no payment, never 402)",
+      description: "Shape-accurate example response of POST /api/bundle/<id> with clearly-marked synthetic values, plus a 4-step copy-pasteable x402 purchase flow. Generated without payment and without any downstream fleet call.",
+      responses: { "200": { description: "Sample bundle JSON (application/json) — free, ungated" } },
+    },
+  };
   for (const [rk, rv] of Object.entries(routes)) {
     const parts = rk.trim().split(/\s+/);
     if (parts.length < 2) continue;
@@ -433,9 +446,93 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/llms.txt", (req, res) => {
     const lines = Object.entries(routes).map(([rk, rv]) =>
       `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).`);
   });
 }
+
+// ---------------------------------------------------------------------------
+// EXEC-35 — GET /sample: free, synthetic bundle-compose demonstration.
+// Completes the machine-surface parity set (pricing.md / llms.txt /
+// /.well-known/x402.json / openapi.json / pay-failed all live; /sample was the
+// last 404, verified live 2026-09-23). Mirrors the fleet-wide /sample shape
+// (contract-eye-x402 et al.): { ok, free, sample, sample_note, ... }. Values
+// are ILLUSTRATIVE and clearly marked synthetic — the route never calls a
+// downstream fleet service, never bills, and is registered ABOVE
+// paymentMiddleware so it can never emit a 402. A paid response to
+// POST /api/bundle/<id> has exactly this envelope shape with live data.
+// ---------------------------------------------------------------------------
+function sampleJson() {
+  const demo = BUNDLE_LADDER.find((b) => b.id === "market-starter") || BUNDLE_LADDER[0];
+  const syntheticLegs = {
+    "opensea-data": {
+      ok: true, collection: "azuki", action: "floor",
+      floor_price: { value: 4.87, currency: "ETH", symbol: "WETH", source: "synthetic-demo" },
+      _synthetic_demo: true,
+    },
+    "nft-alpha": {
+      ok: true, collection: "azuki",
+      signal: { verdict: "neutral", momentum_24h_pct: -1.8, volume_24h_usd: 512340.55, whale_flow: "balanced" },
+      _synthetic_demo: true,
+    },
+    "suprapack": {
+      ok: true, query: "Azuki",
+      skills: [{ name: "nft-diligence", match: 0.91 }, { name: "marketplace-api", match: 0.78 }],
+      _synthetic_demo: true,
+    },
+  };
+  const bundle = {};
+  for (const [name] of demo.parts) {
+    const key = name.replace("-x402", "");
+    bundle[key] = { status: 200, body: JSON.stringify(syntheticLegs[key] || { ok: true, _synthetic_demo: true }) };
+  }
+  return {
+    ok: true,
+    service: "rae-fleet-router",
+    free: true,
+    sample: true,
+    sample_note:
+      "Synthetic demonstration payload — response shape is accurate to a paid " +
+      "`" + demo.id + "` bundle, values are illustrative. Generated without payment and " +
+      "WITHOUT calling any downstream fleet service. A paid response reflects real fleet data " +
+      "for the topic you send.",
+    demonstrating: {
+      endpoint: `POST /api/bundle/${demo.id}`,
+      price: demo.price + " USDC",
+      network: "eip155:8453",
+      payTo: CANONICAL_PAY_TO,
+      sum_of_parts: `$${bundleSumOfParts(demo).toFixed(2)}`,
+      request_example: { topic: "Azuki" },
+    },
+    response_example: {
+      ok: true,
+      bundle_id: demo.id,
+      bundle,
+      meta: { topic: "Azuki", services_called: demo.parts.length, timestamp: "2026-09-23T00:00:00.000Z", synthetic_demo: true },
+    },
+    how_to_buy: [
+      "1. POST /api/bundle/" + demo.id + " UNPAID with JSON {\"topic\":\"Azuki\"} — expect HTTP 402 with a base64 PAYMENT-REQUIRED header.",
+      "2. Decode PAYMENT-REQUIRED, read accepts[0]: scheme exact, network eip155:8453, amount in atomic USDC (6 decimals; $0.02 = 20000), payTo. The LIVE challenge is authoritative — never reuse cached values.",
+      "3. Sign a USDC EIP-3009 transferWithAuthorization for accepts[0].amount to accepts[0].payTo (no prior approval needed).",
+      "4. Re-send the SAME POST with header PAYMENT-SIGNATURE: <base64 payment payload>. HTTP 200 returns the live bundle in exactly the response_example shape above.",
+    ],
+    invalid_requests_are_never_billed: "Malformed bodies short-circuit to 400 BEFORE the payment gate (EXEC-41).",
+    more: {
+      pricing: "GET /pricing.md",
+      free_sample: "GET /sample (this page)",
+      machine_contract: "GET /openapi.json",
+      x402_manifest: "GET /.well-known/x402.json",
+      payment_failure_recovery: "GET /pay-failed (markdown) or /pay-failed?format=json",
+      flagship: "POST /api/fleet-bundle — $0.10 USDC (nft-alpha + power-pack + tradingagents)",
+      bundle_ladder: BUNDLE_LADDER.map((b) => ({ endpoint: `POST /api/bundle/${b.id}`, price: b.price, desc: b.desc })),
+    },
+  };
+}
+
+// Registered ABOVE paymentMiddleware — free forever, cannot emit 402.
+app.get("/sample", (_req, res) => {
+  res.set("Cache-Control", "public, max-age=60");
+  res.json(sampleJson());
+});
 
 // One routes map feeds the manifest, OpenAPI, llms.txt, paymentMiddleware, and the
 // Express handlers — registered price and advertised price cannot diverge.
