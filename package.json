@@ -4,7 +4,7 @@
   "description": "RAE Fleet Router \u2014 Agent-to-Agent economy demo. Composes multiple x402 services into one paid bundle.",
   "main": "index.js",
   "scripts": {
-    "test": "node --check index.js && node test_bundle_ladder.cjs && node test_prevalidation.cjs",
+    "test": "node --check index.js && node test_bundle_ladder.cjs && node test_prevalidation.cjs && node test_pay_failed.cjs",
     "start": "node index.js"
   },
   "license": "ISC",

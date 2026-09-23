@@ -269,6 +269,132 @@ function pricingMarkdown() {
     "[/.well-known/x402.json](https://rae-fleet-router.fly.dev/.well-known/x402.json). The live",
     "x402 payment challenge is authoritative if a configured price changes.",
     "",
+    "Payment failed? **GET [/pay-failed](https://rae-fleet-router.fly.dev/pay-failed)** —",
+    "\"fix in 30 seconds\" recovery recipes for the 4 real failure modes (machine-readable",
+    "at /pay-failed?format=json).",
+    "",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// PLAN-32 — GET /pay-failed: "Your x402 payment failed — fix in 30 seconds".
+// Markdown-first recovery surface for the fleet's 4 real observed failure
+// modes (wrong network — tradingagents eip155:84532 manifest incident;
+// payTo drift to 0xfbc0eb78 — 9/13 routes audit; insufficient/expired USDC
+// approval/balance; price drift vs stale /pricing.md). Every mode carries a
+// machine-readable retry recipe; ?format=json (or Accept: application/json)
+// serves the whole set as JSON. Failed payments are lost revenue the buyer
+// agent can repair with ONE retry — this page is the repair manual.
+// ---------------------------------------------------------------------------
+const CANONICAL_PAY_TO = "0x7861db4efc14a1ed5dd8c96c528a3796560f1393";
+const MAINNET_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const FACILITATOR_URL = "https://api.cdp.coinbase.com/platform/v2/x402";
+const EXAMPLE_RESOURCE = "https://rae-fleet-router.fly.dev/api/bundle/market-starter";
+
+function payFailedModes() {
+  return [
+    {
+      id: "wrong-network",
+      title: "Mode 1 — Wrong network (eip155:8453 vs eip155:84532)",
+      symptom: "Payment verifies as failed or the facilitator rejects the authorization: it was signed against Base Sepolia (84532), Ethereum mainnet (1), or the wrong chainId in the EIP-712 domain.",
+      cause: "The EIP-712 domain of transferWithAuthorization binds chainId. A signature made for any chain other than the challenge's `accepted.network` can never verify on Base mainnet. (Real incident: staci-tradingagents manifest was stuck advertising eip155:84532 while payments only settle on eip155:8453.)",
+      fix: [
+        "Decode the live 402 response's PAYMENT-REQUIRED header (base64 JSON) and read accepts[0].network — it is authoritative.",
+        "Re-sign the EIP-3009 TransferWithAuthorization with domain { name: \"USD Coin\", version: \"2\", chainId: 8453, verifyingContract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 }.",
+        "Send the retry from a signer/wallet funded on Base mainnet, not a testnet client.",
+      ],
+      retry_recipe: { resource: EXAMPLE_RESOURCE, method: "POST", network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO, facilitator: FACILITATOR_URL, eip712_domain: { name: "USD Coin", version: "2", chainId: 8453, verifyingContract: MAINNET_USDC } },
+    },
+    {
+      id: "payto-drift",
+      title: "Mode 2 — payTo drift (stale or cached recipient address)",
+      symptom: "Payment settles on-chain but the resource server refuses to verify it — funds moved to an address the service does not own, e.g. the router's own wallet 0xfbc0eb7811d477e55261d956df39f0046e192240 seen in the 9/13 routes audit, or any address remembered from an older response.",
+      cause: "The challenge's payTo is the ONLY recipient that verifies. Cached manifests, copied curl examples, or a previous vendor's config silently rot when a service rotates its treasury.",
+      fix: [
+        "Never reuse a payTo from cache or docs — copy accepts[0].payTo from THIS session's live 402 challenge.",
+        "Compare it (case-insensitive full-address match) against /.well-known/x402.json before signing.",
+        "For fleet services the canonical treasury payTo is " + CANONICAL_PAY_TO + " — if a live challenge shows anything else, STOP and re-check the service; drift itself is the alarm.",
+      ],
+      retry_recipe: { resource: EXAMPLE_RESOURCE, method: "POST", network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO, payTo_source_of_truth: "https://rae-fleet-router.fly.dev/.well-known/x402.json", facilitator: FACILITATOR_URL },
+    },
+    {
+      id: "insufficient-approval",
+      title: "Mode 3 — Insufficient balance or expired USDC approval",
+      symptom: "Facilitator verification fails with transfer errors (insufficient balance / allowance, or the atomic USDC transfer reverts on submission).",
+      cause: "USDC on Base is a fee-on-transfer-free ERC-20 but still requires: (a) enough balanceOf(payer), and (b) for approve+transferFrom paths, a live, un-expired allowance to the spender. The EIP-3009 transferWithAuthorization path used by x402 exact scheme needs NO prior approval — if you are on an approval-based integration, a stale/zero allowance is the usual killer.",
+      fix: [
+        "eth_call USDC.balanceOf(payer) on eip155:8453 (contract " + MAINNET_USDC + ", 6 decimals) against accepts[0].amount before paying.",
+        "Prefer the EIP-3009 transferWithAuthorization path (no approval, expires by validBefore; default maxTimeout 300s from the challenge).",
+        "If your stack uses approve(): re-approve the exact spender from the live challenge, then retry unpaid to get a fresh challenge first.",
+      ],
+      retry_recipe: { resource: EXAMPLE_RESOURCE, method: "POST", network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO, facilitator: FACILITATOR_URL, preflight: "eth_call balanceOf(payer) >= accepted.amount; prefer EIP-3009 (no allowance needed)" },
+    },
+    {
+      id: "price-drift",
+      title: "Mode 4 — Paid a stale price (cached /pricing.md vs live challenge)",
+      symptom: "Authorization amount matches your docs but not the challenge: verification fails on amount mismatch, or you underpay/overpay a re-priced endpoint.",
+      cause: "Advertised copy (/pricing.md, llms.txt, your notes) can lag a re-deploy. The live 402 challenge is always authoritative; prices on this router move with bundle-ladder updates (see STRAT-26 history).",
+      fix: [
+        "On ANY 402, re-decode PAYMENT-REQUIRED and sign accepts[0].amount EXACTLY (atomic USDC, 6 decimals — $0.02 = 20000).",
+        "Do not persist amounts across sessions; do not infer price from GET /pricing.md for a POST you are about to pay.",
+        "If the response is 4xx AFTER a paid attempt, the challenge you honored was stale — re-probe unpaid, re-sign, retry once.",
+      ],
+      retry_recipe: { resource: EXAMPLE_RESOURCE, method: "POST", network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO, facilitator: FACILITATOR_URL, amount_rule: "sign accepts[0].amount verbatim from the live challenge; advertised copy is advisory only" },
+    },
+  ];
+}
+
+function payFailedJson() {
+  return {
+    ok: true,
+    service: "rae-fleet-router",
+    page: "x402 payment failure recovery — fix in 30 seconds",
+    canonical: { network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO, facilitator: FACILITATOR_URL },
+    this_deployment: { network: NETWORK, payTo: PAY_TO },
+    universal_rule: "Decode the live 402 PAYMENT-REQUIRED header and copy accepts[0] verbatim (network, payTo, amount). Never reuse cached values.",
+    modes: payFailedModes(),
+  };
+}
+
+function payFailedMarkdown() {
+  const m = payFailedModes();
+  const sections = m.map((x) => [
+    "## " + x.title,
+    "",
+    "**Symptom.** " + x.symptom,
+    "",
+    "**Cause.** " + x.cause,
+    "",
+    "**Fix (30 seconds):**",
+    ...x.fix.map((s) => "1. " + s),
+    "",
+    "Machine-readable retry recipe:",
+    "",
+    "```json",
+    JSON.stringify(x.retry_recipe, null, 2),
+    "```",
+    "",
+  ].join("\n")).join("\n");
+  return [
+    "# Your x402 payment failed — fix in 30 seconds",
+    "",
+    "You hit one of the four real failure modes. The universal rule that prevents all",
+    "four: **the live 402 `PAYMENT-REQUIRED` header (base64 JSON) is the single source",
+    "of truth.** Decode it and copy `accepts[0].network`, `.payTo`, `.amount` verbatim",
+    "into your signed USDC EIP-3009 authorization — never reuse cached config.",
+    "",
+    "Canonical fleet values: network `eip155:8453` (Base mainnet), USDC",
+    "`" + MAINNET_USDC + "` (6 decimals), payTo `" + CANONICAL_PAY_TO + "`,",
+    "facilitator `" + FACILITATOR_URL + "`.",
+    "Machine-readable form of this entire page: `GET /pay-failed?format=json`.",
+    "",
+    sections,
+    "---",
+    "",
+    "*Re-probe the endpoint UNPAID to get a fresh challenge, re-sign against it, and",
+    "re-send with the `PAYMENT-SIGNATURE` header. 4xx responses are never billed on",
+    "this router — validation runs before the payment gate (EXEC-41).*",
+    "",
   ].join("\n");
 }
 
@@ -277,6 +403,14 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   const openapi = { openapi: "3.1.0", info: { title: serviceInfo.title, description: serviceInfo.description, version: "1.0.0", contact: { email: "jadedfocus@gmail.com" },
     "x-guidance": "Call POST /api/fleet-bundle with JSON {topic: string, email_subject?: string, email_body?: string} to get a bundled research result from multiple RAE fleet services (nft-alpha, power-pack, tradingagents). Price $0.10 USDC on Base (eip155:8453) per call, pay-per-call via x402. Buyer owns signing; set a per-call spend ceiling; do not auto-retry paid calls." },
     paths: {} };
+  openapi.paths["/pay-failed"] = {
+    get: {
+      summary: "x402 payment failure recovery — fix in 30 seconds (free, no payment)",
+      description: "Markdown-first recovery copy for the fleet's 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price). Machine-readable set at ?format=json. Every mode carries a retry recipe with endpoint, network, payTo, and facilitator URL.",
+      parameters: [{ name: "format", in: "query", required: false, description: "json returns the full mode set + canonical values as JSON", schema: { type: "string", enum: ["json"] } }],
+      responses: { "200": { description: "Recovery copy (text/markdown, or application/json with ?format=json)" } },
+    },
+  };
   for (const [rk, rv] of Object.entries(routes)) {
     const parts = rk.trim().split(/\s+/);
     if (parts.length < 2) continue;
@@ -299,7 +433,7 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/llms.txt", (req, res) => {
     const lines = Object.entries(routes).map(([rk, rv]) =>
       `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).`);
   });
 }
 
@@ -328,6 +462,15 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Payment, PAYMENT-SIGNATURE");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
+});
+
+// PLAN-32 — free recovery surface (registered ABOVE the payment gate; never gated).
+app.get("/pay-failed", (req, res) => {
+  const accept = String(req.get("accept") || "");
+  const wantsJson = String(req.query.format || "").toLowerCase() === "json" ||
+    (accept.includes("application/json") && !accept.includes("text/markdown") && !accept.includes("*/*"));
+  if (wantsJson) return res.json(payFailedJson());
+  res.type("text/markdown; charset=utf-8").send(payFailedMarkdown());
 });
 
 // ---------------------------------------------------------------------------
@@ -372,6 +515,7 @@ app.use((req, res, next) => {
       "x-payment-challenge": false,
       expected: "topic (non-empty string); optional email_subject (>=3 chars), email_body (>=20 chars)",
       retry: "Fix the JSON body and re-send UNPAID — 400 responses are never billed. Machine contract: /openapi.json",
+      "x-recovery": "https://rae-fleet-router.fly.dev/pay-failed",
     });
   }
   next();
@@ -400,6 +544,7 @@ if (require.main === module) {
   app.listen(PORT, () => console.log(`→ RAE Fleet Router listening on :${PORT} (payTo ${PAY_TO})`));
 }
 
-// Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math) and
-// test_prevalidation.cjs (EXEC-41 charging-order acceptance).
-module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors };
+// Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math),
+// test_prevalidation.cjs (EXEC-41 charging-order acceptance), and
+// test_pay_failed.cjs (PLAN-32 recovery-surface acceptance).
+module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors, payFailedJson, payFailedMarkdown, payFailedModes, CANONICAL_PAY_TO };
