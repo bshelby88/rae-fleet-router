@@ -138,6 +138,13 @@ async function callFleetService(name, payload) {
 }
 
 const app = express();
+// EXEC-52: behind Fly's reverse proxy Express reports req.protocol === "http"
+// unless the proxy hop is trusted, and @x402/express derives the advertised
+// x402 resource URL from the request origin. Cleartext scheme made CDP Bazaar
+// reject every challenge: "resource must start with 'https://' when protocol
+// type is http" — i.e. the money surface could never be indexed. Trusting the
+// first (Fly) hop makes req.protocol === "https" in production.
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "rae-fleet-router", network: NETWORK, payTo: PAY_TO }));
@@ -544,6 +551,21 @@ for (const b of BUNDLE_LADDER) {
     mimeType: "application/json",
     requestSchema: BUNDLE_INPUT_SCHEMA,
     responseSchema: BUNDLE_OUTPUT_SCHEMA,
+    // EXEC-52: extensions.bazaar is a REQUIRED preflight check for CDP Bazaar
+    // indexing; the ladder routes shipped none (flagship bundleRoute had it,
+    // the ladder did not). Same machine contract, per-route example.
+    extensions: {
+      ...declareDiscoveryExtension({
+        method: "POST",
+        bodyType: "json",
+        input: { topic: "Azuki" },
+        inputSchema: BUNDLE_INPUT_SCHEMA,
+        output: {
+          example: { ok: true, bundle: {}, meta: { route: b.id, services_called: b.parts.length } },
+          schema: BUNDLE_OUTPUT_SCHEMA,
+        },
+      }),
+    },
   };
 }
 
