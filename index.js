@@ -752,8 +752,9 @@ app.post("/a2a", (req, res) => {
     if (/image|picture|banana/.test(lower)) answer += `\n\nImage generation/editing lives on the nanobanana wall: POST /api/generate-image and /api/edit-image, $0.01 each.`;
     const metadata = { free: true, x402: { network: "eip155:8453", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: CANONICAL_PAY_TO, manifest: "/.well-known/x402.json" } };
     const messageId = `r-${Date.now()}`;
+    const message = { messageId, role: "ROLE_AGENT", parts: [{ text: answer }], metadata };
     const result = v1
-      ? { messageId, role: "ROLE_AGENT", parts: [{ text: answer }], metadata }
+      ? { message }
       : { kind: "message", role: "agent", messageId, parts: [{ kind: "text", text: answer }], metadata };
     return res.json({ jsonrpc: "2.0", id, result });
   }
