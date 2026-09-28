@@ -43,6 +43,7 @@ async function main() {
   check("name + description", typeof card.name === "string" && card.name.length > 3 && typeof card.description === "string" && card.description.length > 20);
   check("card url is https /a2a", /^https:\/\//.test(card.url || "") && /\/a2a$/.test(card.url || ""), card.url);
   check("supportedInterfaces bonus present", Array.isArray(card.supportedInterfaces) && card.supportedInterfaces.length >= 1 && card.supportedInterfaces[0].transport === "JSONRPC");
+  check("v1 AgentInterface protocolBinding (REQUIRED for SDK transport matching)", card.supportedInterfaces[0].protocolBinding === "JSONRPC" && card.supportedInterfaces[0].protocolVersion === "1.0");
   check("preferredTransport JSONRPC", card.preferredTransport === "JSONRPC");
   check("provider = Royal Agentic Enterprises", card.provider && card.provider.organization === "Royal Agentic Enterprises");
   check(">=3 skills", Array.isArray(card.skills) && card.skills.length >= 3, `skills=${(card.skills || []).length}`);

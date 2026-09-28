@@ -700,7 +700,7 @@ function agentCardJson(req) {
     version: "1.0.0",
     protocolVersion: "1.0",
     url: a2aCardUrl(req),
-    supportedInterfaces: [{ url: a2aCardUrl(req), transport: "JSONRPC" }],
+    supportedInterfaces: [{ url: a2aCardUrl(req), transport: "JSONRPC", protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
     preferredTransport: "JSONRPC",
     provider: { organization: "Royal Agentic Enterprises", url: "https://royal-gateway-x402.fly.dev" },
     documentationUrl: "https://rae-fleet-router.fly.dev/pricing.md",
