@@ -680,13 +680,13 @@ function agentCardJson(req) {
       id: "fleet-bundle", name: "Fleet bundle research",
       description: "Compose nft-alpha (NFT market signals) + power-pack (outreach email scoring) + tradingagents (market consensus) into one paid research call. $0.10 USDC on Base via x402 v2.",
       tags: ["nft", "market-signals", "email-scoring", "x402", "usdc", "base"],
-      examples: [{ topic: "Azuki" }],
+      examples: ["Bundle three fleet services (NFT signals + email scoring + market consensus) into one paid research call for a topic such as Azuki."],
     },
     ...BUNDLE_LADDER.map((b) => ({
       id: `bundle-${b.id}`, name: `Bundle: ${b.id}`,
       description: `${b.desc} ${b.price} USDC on Base via x402 v2 (bundle priced below the sum of its live per-call parts).`,
       tags: ["bundle", "x402", "usdc", "base", "agent-to-agent"],
-      examples: [{ topic: "Azuki" }],
+      examples: [`POST /api/bundle/${b.id} with a topic keyword — ${b.desc}`],
     })),
     {
       id: "fleet-info", name: "Fleet capability guide (free)",

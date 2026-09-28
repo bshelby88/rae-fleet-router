@@ -47,6 +47,7 @@ async function main() {
   check("provider = Royal Agentic Enterprises", card.provider && card.provider.organization === "Royal Agentic Enterprises");
   check(">=3 skills", Array.isArray(card.skills) && card.skills.length >= 3, `skills=${(card.skills || []).length}`);
   check("every skill has id/name/description/tags", (card.skills || []).every((s) => s.id && s.name && s.description && Array.isArray(s.tags) && s.tags.length >= 1));
+  check("skill examples are strings (AgentSkill schema)", (card.skills || []).every((s) => s.examples === undefined || (Array.isArray(s.examples) && s.examples.every((x) => typeof x === "string"))));
   const ext = (((card.capabilities || {}).extensions) || []);
   check("x402 capability flag declared", ext.some((e) => /x402/i.test(String(e.uri || "") + String(e.description || ""))));
   check("extension text names mainnet + treasury", ext.some((e) => /eip155:8453/.test(e.description || "") && /0x7861db4efc14a1ed5dd8c96c528a3796560f1393/.test(e.description || "")));
