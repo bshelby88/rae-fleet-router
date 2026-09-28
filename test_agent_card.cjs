@@ -63,9 +63,18 @@ async function main() {
   check("agent message parts carry text", Array.isArray(v03.body.result.parts) && /x402/i.test(v03.body.result.parts[0].text || ""));
   check("metadata marks free + canonical payTo", v03.body.result.metadata && v03.body.result.metadata.free === true && v03.body.result.metadata.x402.payTo === CANONICAL_PAY_TO);
 
+  // AGENSTRY-W1 c6: v1 SendMessage must speak protojson (ROLE_AGENT enum, bare
+  // oneof parts without "kind"); v0.3 message/send keeps kinded lower-case form.
+  // Agenstry's live_responds validator judges the result body against the schema
+  // of the negotiated method — a kinded v0.3 body under SendMessage = "not a
+  // valid JSON-RPC 2.0 A2A response" (the exact probe finding 2026-09-28).
   const v1 = await rpc({ jsonrpc: "2.0", id: "c9", method: "SendMessage", params: { message: { kind: "message", role: "user", messageId: "m2", parts: [{ kind: "text", text: "score my azuki outreach email" }] } } });
-  check("SendMessage (v1) answered", v1.body.result && v1.body.id === "c9" && v1.body.result.kind === "message");
+  check("SendMessage (v1) answered with protojson Message", v1.body.result && v1.body.id === "c9" && v1.body.result.role === "ROLE_AGENT" && v1.body.result.kind === undefined);
+  check("v1 parts are bare oneof (no kind discriminator)", Array.isArray(v1.body.result.parts) && v1.body.result.parts.length === 1 && v1.body.result.parts[0].kind === undefined && typeof v1.body.result.parts[0].text === "string");
   check("email intent -> power-pack pointer", /power-pack/.test(v1.body.result.parts[0].text || ""));
+
+  const v1bare = await rpc({ jsonrpc: "2.0", id: "c10", method: "SendMessage", params: { message: { role: "ROLE_USER", messageId: "m3", parts: [{ text: "show me azuki nft signal options" }] } } });
+  check("v1 bare-text inbound parts parsed (nft pointer fired)", /nft-alpha/.test(v1bare.body.result.parts[0].text || ""));
 
   const gc = await rpc({ jsonrpc: "2.0", id: 2, method: "GetAgentCard", params: {} });
   check("GetAgentCard returns card url", gc.body.result && gc.body.result.url === card.url);
