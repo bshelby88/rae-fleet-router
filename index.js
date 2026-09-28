@@ -659,6 +659,104 @@ app.get("/sample", (_req, res) => {
   res.json(sampleJson());
 });
 
+// ---------------------------------------------------------------------------
+// AGENSTRY-W1 (recO9y9mCEnExkp3W, 2026-09-28) — A2A v1.0 agent card + free
+// JSON-RPC SendMessage surface. Agenstry's /submit validator proved the only
+// indexing blocker was the missing /.well-known/agent-card.json (HTTP 404),
+// and its methodology scores a live negotiated JSON-RPC method on the card's
+// `url` (SendMessage for v1, message/send for v0.3). Both routes are
+// registered ABOVE paymentMiddleware — they can never emit a 402, never call
+// a downstream paid service, and never move money. All claims mirror the
+// live x402 manifest; the card is discovery copy, not an authority —
+// the live 402 challenge remains the single source of truth for prices.
+// ---------------------------------------------------------------------------
+function a2aCardUrl(req) {
+  // Production is TLS-only behind Fly; advertise https even on local http probes.
+  return `https://${req.get("host") || "rae-fleet-router.fly.dev"}/a2a`;
+}
+function agentCardJson(req) {
+  const skills = [
+    {
+      id: "fleet-bundle", name: "Fleet bundle research",
+      description: "Compose nft-alpha (NFT market signals) + power-pack (outreach email scoring) + tradingagents (market consensus) into one paid research call. $0.10 USDC on Base via x402 v2.",
+      tags: ["nft", "market-signals", "email-scoring", "x402", "usdc", "base"],
+      examples: ["Bundle three fleet services (NFT signals + email scoring + market consensus) into one paid research call for a topic such as Azuki."],
+    },
+    ...BUNDLE_LADDER.map((b) => ({
+      id: `bundle-${b.id}`, name: `Bundle: ${b.id}`,
+      description: `${b.desc} ${b.price} USDC on Base via x402 v2 (bundle priced below the sum of its live per-call parts).`,
+      tags: ["bundle", "x402", "usdc", "base", "agent-to-agent"],
+      examples: [`POST /api/bundle/${b.id} with a topic keyword — ${b.desc}`],
+    })),
+    {
+      id: "fleet-info", name: "Fleet capability guide (free)",
+      description: "Ask this agent in plain text which fleet services exist, what they cost, and how to pay with x402 — answered free over A2A JSON-RPC, no payment, no downstream calls.",
+      tags: ["catalog", "pricing", "discovery", "x402", "free"],
+    },
+  ];
+  return {
+    name: "RAE Fleet Router — Agent-to-Agent Bundle",
+    description: "Royal Agentic Enterprises x402 fleet entry point: paid bundle endpoints (USDC on Base, per-call via x402 v2, CDP-facilitator-verifiable) composing nft-alpha, power-pack, tradingagents, opensea-data, suprapack, nanobanana and more, plus a free capability-guide agent. Live machine-readable pricing: /.well-known/x402.json.",
+    version: "1.0.0",
+    protocolVersion: "1.0",
+    url: a2aCardUrl(req),
+    supportedInterfaces: [{ url: a2aCardUrl(req), transport: "JSONRPC" }],
+    preferredTransport: "JSONRPC",
+    provider: { organization: "Royal Agentic Enterprises", url: "https://royal-gateway-x402.fly.dev" },
+    documentationUrl: "https://rae-fleet-router.fly.dev/pricing.md",
+    capabilities: {
+      streaming: false,
+      pushNotifications: false,
+      stateTransitionHistory: false,
+      extensions: [
+        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. The live 402 challenge is authoritative.", required: false },
+      ],
+    },
+    defaultInputModes: ["application/json", "text/plain"],
+    defaultOutputModes: ["application/json", "text/plain"],
+    skills,
+    securitySchemes: {},
+    security: [],
+  };
+}
+function a2aGuideText() {
+  const ladder = BUNDLE_LADDER.map((b) => `- POST /api/bundle/${b.id} — ${b.price} USDC: ${b.desc}`).join("\n");
+  return `RAE Fleet Router (Royal Agentic Enterprises) — 17 live x402 service walls on Base mainnet, USDC per-call, no API key. Paid here: POST /api/fleet-bundle $0.10 (nft-alpha + power-pack + tradingagents). ${ladder}. Free surfaces: /sample (shape-accurate demo), /pricing.md, /.well-known/x402.json (machine pricing), /pay-failed (recovery recipes). To pay: POST unpaid, decode the 402 PAYMENT-REQUIRED header, sign a USDC EIP-3009 transferWithAuthorization, re-send with PAYMENT-SIGNATURE. The live challenge is authoritative — prices there beat this text.`;
+}
+app.get(["/.well-known/agent-card.json", "/.well-known/agent.json"], (req, res) => {
+  res.set("Cache-Control", "public, max-age=60");
+  res.json(agentCardJson(req));
+});
+app.post("/a2a", (req, res) => {
+  const b = req.body || {};
+  const id = b.id !== undefined ? b.id : null;
+  if (b.jsonrpc !== "2.0" || typeof b.method !== "string") {
+    return res.json({ jsonrpc: "2.0", id, error: { code: -32600, message: "Invalid Request: expected JSON-RPC 2.0 with a method string" } });
+  }
+  if (b.method === "SendMessage" || b.method === "message/send" || b.method === "tasks/send") {
+    const userText = (((b.params || {}).message || {}).parts || [])
+      .filter((p) => p && p.kind === "text" && typeof p.text === "string")
+      .map((p) => p.text).join(" ").slice(0, 500);
+    const lower = userText.toLowerCase();
+    let answer = a2aGuideText();
+    if (/azuki|nft|collection/.test(lower)) answer += `\n\nYou mentioned NFTs: cheapest live path is nft-alpha POST /api/nft-signal $0.02 (own wall), or bundle here from $0.02.`;
+    if (/email|subject|scor/.test(lower)) answer += `\n\nOutreach scoring: power-pack POST /api/score-email $0.01 (own wall), or the fleet-bundle which composes it.`;
+    if (/image|picture|banana/.test(lower)) answer += `\n\nImage generation/editing lives on the nanobanana wall: POST /api/generate-image and /api/edit-image, $0.01 each.`;
+    return res.json({
+      jsonrpc: "2.0", id,
+      result: {
+        kind: "message", role: "agent", messageId: `r-${Date.now()}`,
+        parts: [{ kind: "text", text: answer }],
+        metadata: { free: true, x402: { network: "eip155:8453", asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payTo: CANONICAL_PAY_TO, manifest: "/.well-known/x402.json" } },
+      },
+    });
+  }
+  if (b.method === "GetAgentCard") {
+    return res.json({ jsonrpc: "2.0", id, result: agentCardJson(req) });
+  }
+  return res.json({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found: supported are SendMessage (v1), message/send (v0.3), GetAgentCard" } });
+});
+
 // One routes map feeds the manifest, OpenAPI, llms.txt, paymentMiddleware, and the
 // Express handlers — registered price and advertised price cannot diverge.
 const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute };
