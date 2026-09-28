@@ -286,6 +286,10 @@ function pricingMarkdown() {
     "\"fix in 30 seconds\" recovery recipes for the 4 real failure modes (machine-readable",
     "at /pay-failed?format=json).",
     "",
+    "Competitive context? **GET [/benchmarks](https://rae-fleet-router.fly.dev/benchmarks)** —",
+    "fleet live-402 price survey vs Coinbase CDP facilitator rates and the x402 Bazaar",
+    "census percentiles (markdown at /benchmarks?format=md).",
+    "",
   ].join("\n");
 }
 
@@ -411,6 +415,112 @@ function payFailedMarkdown() {
   ].join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// STRAT-47 — GET /benchmarks: fleet x402 pricing benchmark vs Coinbase CDP
+// facilitator rates and the 2026-08-28 x402 Bazaar census (14,820 paid
+// resources). Data below is the 2026-09-28 live 402-challenge survey of the
+// fleet (amounts copied verbatim from decoded PAYMENT-REQUIRED headers,
+// micro-USDC / 6 decimals). A static snapshot: as always on this router the
+// LIVE 402 challenge remains authoritative over any advertised price.
+// Default response is JSON (machine-first, A2A charter); ?format=md serves
+// the human/markdown view. Free route, registered above paymentMiddleware.
+const BENCHMARK_SURVEY = {
+  survey_utc: "2026-09-28T04:05:00Z",
+  method: "live x402 402-challenge capture per paid route (authoritative), plus /pricing.md and /.well-known/x402.json parity checks; market baseline from the 2026-08-28 x402 Bazaar audit (14,820 resources) and Coinbase CDP facilitator published rates",
+  cdp_facilitator_baseline: {
+    source: "https://docs.cdp.coinbase.com/x402/seller/facilitator (accessed 2026-09-28)",
+    verification_usd: 0,
+    settlement_free_tier: "first 1,000 onchain settlements/month",
+    settlement_over_tier_usd: 0.001,
+    note: "fees are per onchain settlement, not per request; gas is facilitator-paid; no processor or chargeback fees",
+  },
+  fleet_facilitator: "https://x402-agent-pay.com/facilitator",
+  usdc_decimals: 6,
+  canonical_pay_to: CANONICAL_PAY_TO,
+  live_verified_usd: [
+    { service: "dispute-forge", route: "POST /api/dispute-pack", amount_usd: 0.75, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 97.8 },
+    { service: "briefsnap", route: "POST /api/summarize", amount_usd: 1.00, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 98.1 },
+    { service: "briefsnap", route: "POST /api/compare-docs", amount_usd: 3.00, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 99.6 },
+    { service: "escrow", route: "POST /api/escrow/create", amount_usd: 0.05, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 71.6 },
+    { service: "nft-alpha", route: "POST /api/nft-signal", amount_usd: 0.02, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 59.0 },
+    { service: "suprapack", route: "POST /api/find-skill", amount_usd: 0.03, network: "eip155:84532", pay_to_matches_canonical: true, bazaar_percentile: 67.2, defect: "live challenge advertises Base Sepolia (eip155:84532) — mainnet USDC buyers cannot pay this route" },
+    { service: "tradingagents", route: "POST /api/analyze-arbitrage", amount_usd: 0.05, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 71.6 },
+    { service: "tradingagents", route: "POST /api/analyze-ticker", amount_usd: 0.05, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 71.6 },
+    { service: "raen-portfolio", route: "POST /api/portfolio", amount_usd: 0.01, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 42.3 },
+    { service: "rae-fleet-router", route: "POST /api/fleet-bundle", amount_usd: 0.10, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 82.2, defect: "priced ABOVE its own sum-of-parts ($0.02 + $0.01 + $0.05 = $0.08), breaking the published bundle-ladder promise" },
+    { service: "rae-fleet-router", route: "POST /api/bundle/market-starter", amount_usd: 0.02, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 59.0 },
+    { service: "rae-fleet-router", route: "POST /api/bundle/market-intel-trio", amount_usd: 0.05, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 71.6 },
+    { service: "rae-fleet-router", route: "POST /api/bundle/full-fleet-sampler", amount_usd: 0.06, network: "eip155:8453", pay_to_matches_canonical: true, bazaar_percentile: 79.1 },
+  ],
+  manifest_defects: [
+    "escrow /.well-known/x402.json advertises eip155:84532 while the LIVE 402 challenge is eip155:8453 (mainnet) — stale machine manifest",
+    "nimbus-agent /.well-known/x402.json advertises service 'dispute-forge' @ $0.75 and its /api/dispute-pack route 500s — wrong app deployed under this hostname",
+    "opensea-data-x402 hostname serves the internal 'revenue-optimizer' app (GET 200, no x402 gate) — the advertised $0.01 opensea-data surface is not live there",
+    "suprapack live challenge advertises testnet eip155:84532 (see live_verified_usd)"
+  ],
+  unreachable_at_survey: { services: ["sentry-forge (503)", "contract-eye (no DNS/suspended)", "dispatch (suspended)", "lingua (503)", "nanobanana (suspended)", "power-pack (suspended)", "royal-feel (503/400s, no 402 captured)", "royal-ruby (500)", "vault-pro (suspended)", "staci-nft-oracle (503)", "opensea-data (wrong app)", "nimbus (500)"], fleet_apps_live_on_fly: "re-verified same UTC morning: 20 fleet apps exist; several suspended by ongoing redeploy waves during the survey window" },
+  market_baseline: {
+    source: "x402 Bazaar audit 2026-08-28 (fetchgate.dev, CC BY 4.0, 14,820 listed resources)",
+    median_listed_usd: 0.01,
+    median_active_over_100_calls30d_usd: 0.006,
+    percentiles: { "0.001": 0.2, "0.002": 13.2, "0.01": 42.3, "0.02": 59.0, "0.03": 67.2, "0.05": 71.6, "0.06": 79.1, "0.10": 82.2, "0.25": 92.7, "0.75": 97.8, "1.00": 98.1, "2.00": 99.4, "3.00": 99.6, "5.00": 99.6 },
+    fleet_bazaar_listings_in_census: 0,
+  },
+  verdicts: {
+    underpriced_or_negative_margin: [
+      "nanobanana $0.01 vs claimed $0.039 upstream cost (internal COGS feed, unverified) — every settled call loses money",
+      "opensea-data $0.01 vs $0.01 upstream — 0% margin",
+      "fleet-bundle $0.10 vs sum-of-parts $0.08 — inverted bundle math"
+    ],
+    overpriced_for_observed_demand: [
+      "briefsnap $1.00-$3.00 (98.1-99.6th pct of listed x402), lingua $1.00, royal-feel $2.00-$5.00, sentry-forge $5.00, dispute-forge $0.75 (97.8th pct) sit in the top ~2% of the market price band while confirmed external settlements are $0.00 — price is above every observed conversion anchor",
+      "human-service anchors (DoNotPay $39/mo etc.) justify $0.75-$3.00 outputs for HUMANS, not for autonomous x402 buyers whose median willingness (active Bazaar endpoints) is $0.006-$0.02"
+    ],
+    cost_floor: "CDP facilitator marginal cost once past the free tier is $0.001/settlement; no fleet route should be priced under ~$0.002 (2x cost floor) and the current facilitator (x402-agent-pay.com) may charge differently — switch to CDP to get a published, auditable rate"
+  },
+  recommendations: [
+    "1. Availability first: 12 of 20 wall hostnames were unreachable at survey; a suspended wall has infinite price elasticity and zero revenue. Finish the redeploy wave, then re-run this survey.",
+    "2. Move settlement to the CDP facilitator (facilitator.x402.coinbase.com): published $0.001/settlement past 1,000 free/month AND it auto-indexes endpoints on the Bazaar after first settled payment when the challenge advertises extensions.bazaar (fleet already advertises them, yet has 0 of 14,820 census listings because settlements run through x402-agent-pay.com). Discovery, not price, is the binding constraint.",
+    "3. Fix the two testnet defects: suprapack live challenge eip155:84532 -> 8453; escrow stale /.well-known manifest -> 8453.",
+    "4. Raise the floor: nanobanana $0.01 -> >= $0.05 (cost $0.039 claim) or pause it; opensea-data $0.01 -> $0.02+ or retire; never price below 2x the settled cost.",
+    "5. Re-cut the $1+ tier for A2A: keep list prices as human anchors but publish an agent entry SKU at $0.25-$0.50 (92.7th pct) for first calls (STRAT-37) instead of 50%-off-still-98th-pct promos; add output-size meters (word/token counts) so the premium is machine-legible.",
+    "6. Restore bundle-ladder integrity: set /api/fleet-bundle at <= $0.07 or raise a component so bundle < sum-of-parts as advertised on /pricing.md.",
+    "7. Remove or gate the public revenue-optimizer telemetry exposed on the opensea-data-x402 hostname: it advertises unaudited revenue claims and leaks payer-wallet operational state to any unauthenticated GET."
+  ],
+};
+
+function benchmarksJson() {
+  return {
+    ok: true, free: true, service: "rae-fleet-router", benchmark: "STRAT-47 x402 pricing benchmark",
+    generated_from: BENCHMARK_SURVEY.survey_utc,
+    authoritative_price_note: "This is a dated survey snapshot. The live 402 PAYMENT-REQUIRED challenge on each route remains the single source of truth (see /pay-failed mode 4).",
+    data: BENCHMARK_SURVEY,
+    links: { pricing: "/pricing.md", sample: "/sample", machine_contract: "/openapi.json", recovery: "/pay-failed" },
+  };
+}
+
+function benchmarksMarkdown() {
+  const s = BENCHMARK_SURVEY;
+  const rows = s.live_verified_usd.map(r =>
+    `| ${r.service} | ${r.route} | $${r.amount_usd.toFixed(2)} | ${r.network} | ${r.bazaar_percentile}${r.defect ? " | " + r.defect : " | —"}`).join("\n");
+  return [
+    `# STRAT-47 Pricing Benchmark — RAE Fleet (surveyed ${s.survey_utc})`,
+    "",
+    `Baseline: CDP facilitator ${JSON.stringify(s.cdp_facilitator_baseline.verification_usd)} verification + free first ${s.cdp_facilitator_baseline.settlement_free_tier}, then $${s.cdp_facilitator_baseline.settlement_over_tier_usd}/settlement.`,
+    `Market: x402 Bazaar census median $${s.market_baseline.median_listed_usd}/call (active median $${s.market_baseline.median_active_over_100_calls30d_usd}); fleet Bazaar listings: ${s.market_baseline.fleet_bazaar_listings_in_census}.`,
+    "Live 402 challenges captured (authoritative source is still each live challenge):",
+    "",
+    "| Service | Route | Price | Network | Bazaar percentile | Defect |",
+    "|---|---|---|---|---|---|",
+    rows,
+    "",
+    "## Recommendations",
+    ...s.recommendations.map(r => `-${r}`),
+    "",
+    `Machine-readable: GET /benchmarks (JSON).`,
+  ].join("\n");
+}
+
 function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   const x402Manifest = { version: "2.0.0", service: { name: serviceInfo.name, description: serviceInfo.description, contact: "jadedfocus@gmail.com", operator: "Royal Agentic Enterprises" }, endpoints: {} };
   const openapi = { openapi: "3.1.0", info: { title: serviceInfo.title, description: serviceInfo.description, version: "1.0.0", contact: { email: "jadedfocus@gmail.com" },
@@ -429,6 +539,14 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
       summary: "Free synthetic bundle-compose demo (no payment, never 402)",
       description: "Shape-accurate example response of POST /api/bundle/<id> with clearly-marked synthetic values, plus a 4-step copy-pasteable x402 purchase flow. Generated without payment and without any downstream fleet call.",
       responses: { "200": { description: "Sample bundle JSON (application/json) — free, ungated" } },
+    },
+  };
+  openapi.paths["/benchmarks"] = {
+    get: {
+      summary: "Fleet x402 pricing benchmark vs Coinbase CDP facilitator rates and the x402 Bazaar census (free, no payment)",
+      description: "Dated survey (2026-09-28) of live 402 challenge amounts across fleet walls, per-price market percentiles, under/overpriced verdicts, manifest defects, and recommendations. Default JSON; ?format=md serves markdown. The live 402 challenge remains authoritative over this snapshot.",
+      parameters: [{ name: "format", in: "query", required: false, description: "md returns the human/markdown view", schema: { type: "string", enum: ["md"] } }],
+      responses: { "200": { description: "Benchmark JSON (application/json), or text/markdown with ?format=md" } },
     },
   };
   for (const [rk, rv] of Object.entries(routes)) {
@@ -453,7 +571,7 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/llms.txt", (req, res) => {
     const lines = Object.entries(routes).map(([rk, rv]) =>
       `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.`);
   });
 }
 
@@ -592,6 +710,17 @@ app.get("/pay-failed", (req, res) => {
   res.type("text/markdown; charset=utf-8").send(payFailedMarkdown());
 });
 
+// STRAT-47 — free pricing-benchmark surface (registered ABOVE the payment
+// gate; never gated). Machine-first JSON default; ?format=md serves markdown.
+app.get("/benchmarks", (req, res) => {
+  const accept = String(req.get("accept") || "");
+  const wantsMd = String(req.query.format || "").toLowerCase() === "md" ||
+    accept.includes("text/markdown");
+  res.set("Cache-Control", "public, max-age=300");
+  if (wantsMd) return res.type("text/markdown; charset=utf-8").send(benchmarksMarkdown());
+  res.json(benchmarksJson());
+});
+
 // ---------------------------------------------------------------------------
 // EXEC-41 — 400-before-402 pre-validation for the ladder routes. A body that
 // the handler cannot serve must never see a payment challenge: paying and then
@@ -666,4 +795,4 @@ if (require.main === module) {
 // Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math),
 // test_prevalidation.cjs (EXEC-41 charging-order acceptance), and
 // test_pay_failed.cjs (PLAN-32 recovery-surface acceptance).
-module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors, payFailedJson, payFailedMarkdown, payFailedModes, CANONICAL_PAY_TO };
+module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors, payFailedJson, payFailedMarkdown, payFailedModes, CANONICAL_PAY_TO, benchmarksJson, benchmarksMarkdown, BENCHMARK_SURVEY };
