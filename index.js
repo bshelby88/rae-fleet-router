@@ -1180,11 +1180,15 @@ function renderBuyIndexHtml(walls) {
 </div>`;
   }).join("\n");
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Buy — RAE Fleet hosted pay links</title>
-<meta name="description" content="One shareable pay link per x402 service. USDC on Base, no API keys.">
-<style>body{font-family:system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#111}
+  <html lang="en"><head><meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buy — RAE Fleet hosted pay links</title>
+  <meta name="description" content="One shareable pay link per x402 service. USDC on Base, no API keys.">
+  <meta property="og:title" content="Buy — RAE Fleet hosted pay links — USDC on Base, no API keys">
+  <meta property="og:description" content="One shareable pay link per x402 service. USDC on Base, no API keys.">
+  <meta property="og:image" content="https://rae-fleet-router.fly.dev/card">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>body{font-family:system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#111}
 .card{border:1px solid #ddd;border-radius:10px;padding:0.9rem 1.1rem;margin:0.7rem 0}
 .card h3{margin:0 0 .3rem}.desc{color:#444;margin:.2rem 0}.price{margin:.2rem 0;font-weight:600}
 .ep{font-family:ui-monospace,monospace;font-size:.8rem;color:#666;margin:.2rem 0}
@@ -1209,10 +1213,25 @@ function renderBuyPageHtml(item, page) {
   if (page.source === "manifest") flags.push("price source: /.well-known/x402.json manifest (live challenge probe unavailable this refresh)");
   const flagHtml = flags.length ? `<div class="flags">${flags.map((f) => "<p>⚠ " + escHtml(f) + "</p>").join("")}</div>` : "";
   const snippet =
-`curl -s -X POST ${item.endpoint_url} \\
-  -H 'Content-Type: application/json' -d '${bodyStr}' \\
-  -H 'X-PAYMENT-RESPONSE: true' \\
-  --header 'Payment-Signature: <x402 payment payload>'`;
+  `curl -s -X POST ${item.endpoint_url} \\\
+    -H 'Content-Type: application/json' -d '${bodyStr}' \\\
+    -H 'X-PAYMENT-RESPONSE: true' \\\
+    --header 'Payment-Signature: <x402 payment payload>'`;
+    const productJson = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: item.slug + " \\u2014 " + price + " USDC on Base (x402)",
+      description: String(item.description || "").slice(0, 300),
+      offers: {
+        "@type": "Offer",
+        price: Number(pr.amount) / 1e6,
+        priceCurrency: "USDC",
+        priceSpecification: { "@type": "UnitPriceSpecification", price: Number(pr.amount) / 1e6, priceCurrency: "USDC", unitText: "per call" },
+        seller: { "@type": "Organization", name: "RAE Fleet", url: "https://rae-fleet-router.fly.dev" },
+        url: item.endpoint_url,
+        chain: "eip155:8453",
+      },
+    });
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1220,7 +1239,10 @@ function renderBuyPageHtml(item, page) {
 <meta property="og:type" content="product">
 <meta property="og:title" content="${escHtml(item.slug)} — ${escHtml(price)} USDC on Base (x402)">
 <meta property="og:description" content="${escHtml(String(item.description || "").slice(0, 180))} — pay-per-call USDC via x402 v2, no API key.">
+<meta property="og:image" content="https://${escHtml(item.host)}/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="alternate" type="application/json" href="?format=json">
+<script type="application/ld+json">${productJson}</script>
 <style>body{font-family:system-ui,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#111}
 pre{background:#0d1117;color:#e6edf3;padding:1rem;border-radius:8px;overflow-x:auto;font-size:.85rem}
 .kv td{padding:.15rem .8rem .15rem 0;vertical-align:top;font-family:ui-monospace,monospace;font-size:.88rem}
