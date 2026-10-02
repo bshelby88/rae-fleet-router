@@ -1265,7 +1265,8 @@ function renderBuyIndexHtml(walls) {
 surfaces (x402 manifest + 402 challenge), cached 300&nbsp;s. Machine variant:
 <code>GET /buy?format=json</code>.</p>
 ${cards}
-<footer>Every wall on Base, USDC, no API keys — index at <code>/buy</code>.</footer>
+<footer>Every wall on Base, USDC, no API keys — index at <code>/buy</code>.<br>
+<a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
 </body></html>`;
 }
 
@@ -1346,7 +1347,8 @@ ${embedPaymentRequirements(pr)}
 <h2>Machine-readable</h2>
 <pre><code>${escHtml(JSON.stringify(pr, null, 2))}</code></pre>
 <p>Updated ${escHtml(page.json.updated_utc)} · JSON view: <a href="?format=json">?format=json</a></p>
-<footer>Every wall on Base, USDC, no API keys — index at <a href="/buy"><code>/buy</code></a>.</footer>
+<footer>Every wall on Base, USDC, no API keys — index at <a href="/buy"><code>/buy</code></a>.<br>
+<a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
 </body></html>`;
 }
 
