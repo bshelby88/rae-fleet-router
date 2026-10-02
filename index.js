@@ -36,6 +36,20 @@ const facilitatorClient = HAS_CDP
 const x402Server = new x402ResourceServer(facilitatorClient);
 x402Server.register(NETWORK, new ExactEvmScheme());
 
+// ---------------------------------------------------------------------------
+// BUYER-FACING facilitator advertisement (fleet-conforming pattern, 12/13 walls).
+// x402 v2 spec-following buyers look in accepts[0].extra.facilitator (first),
+// accepts[0].facilitator, then the doc root; strict v2 buyers REFUSE to settle
+// a challenge with no facilitator (2026-09-12 AgentPay report; live decode
+// 2026-09-15; REVENUE-SYNTHESIS 2026-10-01 found the router advertising none).
+// x402.org/facilitator is NOT usable: its /supported lists no eip155:8453
+// exact kind (probed 2026-09-15). AgentPay names Base-mainnet exact (v1+v2).
+// This is buyer-facing metadata ONLY — server-side verify/settle still uses
+// the facilitatorClient configured above. resource.serviceName is the
+// companion field the proven power-pack wall ships in the same pattern.
+const CHALLENGE_FACILITATOR_URL = "https://x402-agent-pay.com/facilitator";
+const SERVICE_NAME = "rae-fleet-router";
+
 (async () => {
   for (let i = 1; i <= 12; i++) {
     try { await x402Server.initialize(); console.log(`x402 ready (${i})`); return; }
@@ -170,7 +184,8 @@ const BUNDLE_OUTPUT_SCHEMA = {
 };
 
 const bundleRoute = {
-  accepts: { scheme: "exact", price: "$0.10", network: NETWORK, payTo: PAY_TO },
+  accepts: { scheme: "exact", price: "$0.10", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
+  serviceName: SERVICE_NAME,
   description: "Compose multiple RAE fleet services into one paid bundle. Given a topic, calls nft-alpha (NFT market signals), power-pack (outreach email scoring), and tradingagents (market consensus) via x402, assembles results. Demonstrates agent-to-agent economy.",
   mimeType: "application/json",
   requestSchema: BUNDLE_INPUT_SCHEMA,
@@ -769,7 +784,8 @@ app.post("/a2a", (req, res) => {
 const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute };
 for (const b of BUNDLE_LADDER) {
   PAID_ROUTES[`POST /api/bundle/${b.id}`] = {
-    accepts: { scheme: "exact", price: b.price, network: NETWORK, payTo: PAY_TO },
+    accepts: { scheme: "exact", price: b.price, network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
+    serviceName: SERVICE_NAME,
     description: b.desc,
     mimeType: "application/json",
     requestSchema: BUNDLE_INPUT_SCHEMA,
