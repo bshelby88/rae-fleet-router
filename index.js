@@ -1415,13 +1415,94 @@ app.get("/buy/:slug", async (req, res) => {
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Confirmed — RAEN Fleet</title><style>body{font-family:-apple-system,system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:0 1rem;line-height:1.6}a{color:#06c}code{background:#f5f5f5;padding:.1em .3em;border-radius:3px;font-size:.9em}.row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid #eee}.label{color:#666}</style></head><body><h1>✅ Payment Confirmed</h1><div class="row"><span class="label">Transaction</span><code>${tx.slice(0,10)}…${tx.slice(-8)}</code></div><div class="row"><span class="label">Block</span><strong>${receipt.blockNumber}</strong></div><div class="row"><span class="label">Confirmations</span>${confirmations.toString()}</div><div class="row"><span class="label">Status</span>${receipt.status === "success" ? "✅ Success" : "❌ Failed"}</div><div class="row"><span class="label">From</span><code>${from.slice(0,6)}…${from.slice(-4)}</code></div><div class="row"><span class="label">To</span><code>${to.slice(0,6)}…${to.slice(-4)}</code></div><div class="row"><span class="label">Amount</span><strong>$${usdcAmount.toFixed(2)} USDC</strong></div><div class="row"><span class="label">Network</span>Base (eip155:8453)</div><p style="margin-top:1.5rem"><a href="/buy">← Browse all services</a> · <a href="/payment/confirm?tx=${tx}">↻ Refresh</a></p><footer style="margin-top:2rem;font-size:.8rem;color:#999">RAEN Fleet · <a href="https://rae-fleet-router.fly.dev">rae-fleet-router.fly.dev</a></footer></body></html>`;
       res.type("text/html; charset=utf-8").send(html);
     } catch (e) {
-      console.error("payment-confirm error:", e.message);
-      res.status(500).type("text/html; charset=utf-8").send(`<html><body><h1>Error verifying transaction</h1><p>${e.message}</p><p><a href="/buy">← Back to storefront</a></p></body></html>`);
-    }
-  });
+          console.error("payment-confirm error:", e.message);
+          res.status(500).type("text/html; charset=utf-8").send(`<html><body><h1>Error verifying transaction</h1><p>${e.message}</p><p><a href="/buy">← Back to storefront</a></p></body></html>`);
+        }
+      });
 
-  // ---------------------------------------------------------------------------
-// EXEC-41 — 400-before-402 pre-validation for the ladder routes.
+      // ───────────────────────────────────────────────────────────────────────────
+      // EXEC-32 — GET /catalog.json: aggregate fleet service catalog built from
+      // each wall's live /.well-known/x402.json manifest at request time (300 s
+      // cache via the shared buyCache). Includes the router's own paid endpoints.
+      // Free route (registered ABOVE paymentMiddleware; never a 402).
+      // ───────────────────────────────────────────────────────────────────────────
+      function catalogWallItems(items, hostName) {
+        return items.map(i => ({
+          slug: i.slug,
+          host: i.host,
+          host_name: hostName,
+          endpoint: i.endpoint,
+          method: i.method,
+          price_usdc: i.price_usdc,
+          amount_micro: i.amount_micro,
+          network: i.network,
+          payTo: i.payTo,
+          asset: i.asset,
+          facilitator: i.facilitator,
+          description: String(i.description || "").slice(0, 300),
+          duplicate_of: i.duplicate_of,
+          status: i.status,
+          endpoint_url: i.endpoint_url,
+        }));
+      }
+
+      app.get("/catalog.json", async (req, res) => {
+        const walls = await buildBuyIndex();
+        const wallsOut = [];
+        const seen = new Set();
+        for (const w of walls) {
+          const hostName = (w.host || "").replace(".fly.dev", "");
+          const items = catalogWallItems(w.items || [], hostName);
+          wallsOut.push({ host: w.host, host_name: hostName, status: w.status, error: w.error, items });
+          for (const i of items) seen.add(i.slug);
+        }
+        // Add router's own paid endpoints as a self entry
+        const routerItems = [];
+        for (const [rk, rv] of Object.entries(PAID_ROUTES)) {
+          const parts = rk.trim().split(/\s+/);
+          if (parts.length < 2) continue;
+          const method = parts[0].toUpperCase();
+          const path = parts[1];
+          const price = rv.accepts && rv.accepts.price ? rv.accepts.price : "$0.10";
+          routerItems.push({
+            slug: "rae-fleet-router__" + path.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+            host: "rae-fleet-router.fly.dev",
+            host_name: "rae-fleet-router",
+            endpoint: path,
+            method,
+            price_usdc: Number(String(price).replace("$", "")),
+            amount_micro: String(Math.round(Number(String(price).replace("$", "")) * 1e6)),
+            network: rv.accepts && rv.accepts.network ? rv.accepts.network : NETWORK,
+            payTo: rv.accepts && rv.accepts.payTo ? rv.accepts.payTo : PAY_TO,
+            asset: MAINNET_USDC,
+            facilitator: CHALLENGE_FACILITATOR_URL,
+            description: String(rv.description || "").slice(0, 300),
+            duplicate_of: null,
+            status: "ok",
+            endpoint_url: "https://rae-fleet-router.fly.dev" + path,
+          });
+        }
+        wallsOut.push({ host: "rae-fleet-router.fly.dev", host_name: "rae-fleet-router", status: "ok", error: null, items: routerItems });
+        const catalog = {
+          ok: true, free: true, service: "rae-fleet-router",
+          page: "aggregate fleet x402 service catalog — one JSON document per wall",
+          generated_utc: new Date().toISOString(),
+          wall_count: wallsOut.length,
+          endpoint_count: wallsOut.reduce((s, w) => s + (w.items || []).length, 0),
+          canonical: { network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO },
+          walls: wallsOut,
+          links: {
+            pricing: "/pricing.md", sample: "/sample", openapi: "/openapi.json",
+            x402_manifest: "/.well-known/x402.json", buy: "/buy",
+            benchmarks: "/benchmarks", payment_recovery: "/pay-failed",
+          },
+        };
+        res.set("Cache-Control", "public, max-age=300");
+        res.json(catalog);
+      });
+
+      // ---------------------------------------------------------------------------
+    // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
 // the handler cannot serve must never see a payment challenge: paying and then
 // hitting the handler's 400 would charge the buyer without service. This
 // middleware is registered ABOVE paymentMiddleware() so invalid requests
@@ -1496,4 +1577,4 @@ if (require.main === module) {
 // test_pay_failed.cjs (PLAN-32 recovery-surface acceptance), and
 // test_buy_routes.cjs (EXEC-88 hosted pay-link acceptance).
 module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors, payFailedJson, payFailedMarkdown, payFailedModes, CANONICAL_PAY_TO, benchmarksJson, benchmarksMarkdown, BENCHMARK_SURVEY,
-  BUY_WALLS, buySlugTail, microFromPrice, usdFromMicro, buyGuard, buyItemsFromManifest, buildBuyIndex, buyPage, extractEmbeddedPR, embedPaymentRequirements, buyCache, MAINNET_USDC };
+  BUY_WALLS, buySlugTail, microFromPrice, usdFromMicro, buyGuard, buyItemsFromManifest, buildBuyIndex, buyPage, extractEmbeddedPR, embedPaymentRequirements, buyCache, MAINNET_USDC, catalogWallItems };
