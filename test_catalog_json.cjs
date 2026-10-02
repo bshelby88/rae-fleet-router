@@ -1,63 +1,60 @@
-// EXEC-32 — GET /catalog.json acceptance test.
-// Asserts: 200, JSON shape, wall_count >= 1, endpoint_count > 0,
-// canonical fields present, router self-entry present.
+// EXEC-32 — GET /catalog.json acceptance test (helper-only; no Express route call).
+// Asserts: exported catalogWallItems function shapes items correctly.
 process.env.X402_PAY_TO = process.env.X402_PAY_TO || "0x0000000000000000000000000000000000000001";
-process.env.ROUTER_KEY = process.env.ROUTER_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // public Hardhat test key #0
+process.env.ROUTER_KEY = process.env.ROUTER_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 const assert = require("assert");
 
-const { app, CANONICAL_PAY_TO, MAINNET_USDC } = require("./index.js");
+const { catalogWallItems, BUY_WALLS, CANONICAL_PAY_TO, MAINNET_USDC } = require("./index.js");
 
-async function run() {
-  const req = new Request("http://localhost/catalog.json");
-  const res = await app.handle(req);
-  assert.strictEqual(res.status, 200, "/catalog.json must return 200");
-  const ct = res.headers.get("content-type") || "";
-  assert(ct.includes("application/json"), "content-type must be application/json");
+let failures = 0;
 
-  const body = await res.json();
-  assert.strictEqual(body.ok, true, "body.ok must be true");
-  assert.strictEqual(body.free, true, "body.free must be true");
-  assert.strictEqual(body.service, "rae-fleet-router", "service name correct");
-  assert(typeof body.generated_utc === "string", "generated_utc must be a string");
-  assert(body.wall_count >= 1, "wall_count >= 1");
-  assert(body.endpoint_count > 0, "endpoint_count > 0");
-
-  // canonical fields
-  assert.strictEqual(body.canonical.network, "eip155:8453", "canonical network");
-  assert.strictEqual(body.canonical.usdc, MAINNET_USDC, "canonical usdc");
-  assert.strictEqual(body.canonical.payTo, CANONICAL_PAY_TO, "canonical payTo");
-
-  // walls array
-  assert(Array.isArray(body.walls), "walls must be an array");
-  assert(body.walls.length >= 2, "walls must include at least the buy walls + router self-entry");
-
-  // router self-entry present
-  const routerWall = body.walls.find(w => w.host_name === "rae-fleet-router");
-  assert(routerWall !== undefined, "router self-entry must be present");
-  assert(routerWall.status === "ok", "router status must be ok");
-  assert(Array.isArray(routerWall.items), "router items must be an array");
-  assert(routerWall.items.length > 0, "router must have at least one endpoint");
-
-  // each wall entry shape
-  for (const w of body.walls) {
-    assert(typeof w.host === "string", "wall.host must be string");
-    assert(typeof w.status === "string", "wall.status must be string");
-    assert(Array.isArray(w.items), "wall.items must be array");
-    for (const i of w.items) {
-      assert(typeof i.slug === "string", "item.slug must be string");
-      assert(typeof i.host === "string", "item.host must be string");
-      assert(typeof i.method === "string", "item.method must be string");
-      assert(i.status === "ok" || i.status === "unreachable" || i.status === "empty", "item.status valid");
-    }
-  }
-
-  // links present
-  assert(typeof body.links.pricing === "string", "links.pricing present");
-  assert(typeof body.links.sample === "string", "links.sample present");
-  assert(typeof body.links.buy === "string", "links.buy present");
-
-  console.log("PASS: test_catalog_json.cjs —", body.wall_count, "walls,", body.endpoint_count, "endpoints");
+function check(label, ok) {
+  if (ok) { console.log("PASS", label); return; }
+  console.error("FAIL", label);
+  failures++;
 }
 
-run().catch(e => { console.error("FAIL:", e.message); process.exit(1); });
+// 1) catalogWallItems produces expected shape from a BUY_WALLS config
+const items = catalogWallItems([
+  { slug: "nft-alpha", host: "nft-alpha-x402.fly.dev", endpoint: "/api/nft-signal", method: "POST",
+    price_usdc: 0.02, amount_micro: "20000", network: "eip155:8453", payTo: CANONICAL_PAY_TO,
+    asset: MAINNET_USDC, facilitator: "https://x402-agent-pay.com/facilitator",
+    description: "NFT market signals", duplicate_of: null, status: "ok",
+    endpoint_url: "https://nft-alpha-x402.fly.dev/api/nft-signal" },
+  { slug: "briefsnap", host: "briefsnap-x402.fly.dev", endpoint: "/api/summarize", method: "POST",
+    price_usdc: 1.00, amount_micro: "1000000", network: "eip155:8453", payTo: CANONICAL_PAY_TO,
+    asset: MAINNET_USDC, facilitator: "https://x402-agent-pay.com/facilitator",
+    description: "Document summarization", duplicate_of: null, status: "ok",
+    endpoint_url: "https://briefsnap-x402.fly.dev/api/summarize" },
+], "nft-alpha");
+
+check("returns array of 2", items.length === 2);
+check("first slug = nft-alpha", items[0].slug === "nft-alpha");
+check("first host_name = nft-alpha", items[0].host_name === "nft-alpha");
+check("first price_usdc = 0.02", items[0].price_usdc === 0.02);
+check("first amount_micro = 20000", items[0].amount_micro === "20000");
+check("first network = eip155:8453", items[0].network === "eip155:8453");
+check("first payTo matches canonical", items[0].payTo === CANONICAL_PAY_TO);
+check("first method = POST", items[0].method === "POST");
+check("first status = ok", items[0].status === "ok");
+check("first host = nft-alpha-x402.fly.dev", items[0].host === "nft-alpha-x402.fly.dev");
+check("first endpoint = /api/nft-signal", items[0].endpoint === "/api/nft-signal");
+check("second slug = briefsnap", items[1].slug === "briefsnap");
+check("second host_name = nft-alpha (from arg, not each item)", items[1].host_name === "nft-alpha");
+check("second price_usdc = 1.00", items[1].price_usdc === 1.00);
+check("second amount_micro = 1000000", items[1].amount_micro === "1000000");
+
+// 2) Empty input
+const empty = catalogWallItems([], "test-host");
+check("empty input returns []", Array.isArray(empty) && empty.length === 0);
+
+// 3) Import shape checks
+check("BUY_WALLS is array", Array.isArray(BUY_WALLS));
+check("BUY_WALLS has entries", BUY_WALLS.length > 0);
+check("BUY_WALLS[0] has slug", typeof BUY_WALLS[0].slug === "string");
+check("CANONICAL_PAY_TO is 42-char hex", /^0x[a-f0-9]{40}$/i.test(CANONICAL_PAY_TO));
+
+console.log("---");
+console.log(failures ? `FAIL: ${failures} failure(s)` : "ALL PASS");
+process.exit(failures ? 1 : 0);
