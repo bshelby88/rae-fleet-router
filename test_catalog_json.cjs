@@ -1,6 +1,9 @@
 // EXEC-32 — GET /catalog.json acceptance test.
 // Asserts: 200, JSON shape, wall_count >= 1, endpoint_count > 0,
 // canonical fields present, router self-entry present.
+process.env.X402_PAY_TO = process.env.X402_PAY_TO || "0x0000000000000000000000000000000000000001";
+process.env.ROUTER_KEY = process.env.ROUTER_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // public Hardhat test key #0
+
 const assert = require("assert");
 
 const { app, CANONICAL_PAY_TO, MAINNET_USDC } = require("./index.js");
