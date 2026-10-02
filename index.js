@@ -4,6 +4,8 @@ const { x402ResourceServer, HTTPFacilitatorClient } = require("@x402/core/server
 const { ExactEvmScheme } = require("@x402/evm/exact/server");
 const { declareDiscoveryExtension } = require("@x402/extensions/bazaar");
 const { privateKeyToAccount } = require("viem/accounts");
+const { createPublicClient, http, parseAbiItem } = require("viem");
+const { base } = require("viem/chains");
 
 const PAY_TO = process.env.X402_PAY_TO;
 if (!PAY_TO) { console.error("FATAL: X402_PAY_TO required"); process.exit(1); }
@@ -1377,9 +1379,48 @@ app.get("/buy/:slug", async (req, res) => {
   }
   if (String(req.query.format || "").toLowerCase() === "json") return res.json(page.json);
   res.type("text/html; charset=utf-8").send(renderBuyPageHtml(page.item, page));
-});
+  });
 
-// ---------------------------------------------------------------------------
+  // Base mainnet public client for on-chain queries (eth_getTransactionReceipt, etc.)
+  const BASE_RPC_URL = process.env.BASE_RPC_URL || "https://mainnet.base.org";
+  const publicClient = createPublicClient({ chain: base, transport: http(BASE_RPC_URL) });
+  const USDC_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+  // EXEC-100 — GET /payment/confirm?tx=0x<txHash>
+  // Live on-chain USDC transfer confirmation page. Free (above paymentMiddleware).
+  // Accepts a Base mainnet tx hash, calls eth_getTransactionReceipt via viem,
+  // extracts the USDC Transfer log, and returns an HTML summary.
+  app.get("/payment/confirm", async (req, res) => {
+    const tx = String(req.query.tx || "").trim().toLowerCase();
+    if (!tx || !/^0x[a-f0-9]{64}$/.test(tx)) {
+      return res.status(400).type("text/html; charset=utf-8").send(`<html><body><h1>Invalid transaction hash</h1><p>Expected <code>?tx=0x...</code> (64 hex chars).</p><p><a href="/buy">← Back to storefront</a></p></body></html>`);
+    }
+    try {
+      const receipt = await publicClient.getTransactionReceipt({ hash: tx });
+      if (!receipt) {
+        return res.status(404).type("text/html; charset=utf-8").send(`<html><body><h1>Transaction not found</h1><p>Hash <code>${tx}</code> not found on Base mainnet.</p><p><a href="/buy">← Back to storefront</a></p></body></html>`);
+      }
+      // Find USDC Transfer log (topic 0xddf252...)
+      const transferLog = receipt.logs.find(l => l.topics[0] === USDC_TRANSFER_TOPIC && l.address.toLowerCase() === MAINNET_USDC.toLowerCase());
+      if (!transferLog) {
+        return res.status(200).type("text/html; charset=utf-8").send(`<html><body><h1>Transaction found — no USDC transfer detected</h1><p>Tx <code>${tx}</code> in block <strong>${receipt.blockNumber}</strong> (status: ${receipt.status === "success" ? "✅ Success" : "❌ Failed"}). No USDC Transfer event to <code>${MAINNET_USDC}</code> found in this transaction.</p><p><a href="/buy">← Back to storefront</a></p></body></html>`);
+      }
+      // Decode Transfer(from, to, value) from log data
+      const from = `0x${transferLog.topics[1].slice(26)}`;
+      const to = `0x${transferLog.topics[2].slice(26)}`;
+      const value = BigInt(transferLog.data);
+      const usdcAmount = Number(value) / 1_000_000;
+      const confirmations = Number(receipt.blockNumber) ? (await publicClient.getBlockNumber()) - receipt.blockNumber : 0n;
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Confirmed — RAEN Fleet</title><style>body{font-family:-apple-system,system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:0 1rem;line-height:1.6}a{color:#06c}code{background:#f5f5f5;padding:.1em .3em;border-radius:3px;font-size:.9em}.row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid #eee}.label{color:#666}</style></head><body><h1>✅ Payment Confirmed</h1><div class="row"><span class="label">Transaction</span><code>${tx.slice(0,10)}…${tx.slice(-8)}</code></div><div class="row"><span class="label">Block</span><strong>${receipt.blockNumber}</strong></div><div class="row"><span class="label">Confirmations</span>${confirmations.toString()}</div><div class="row"><span class="label">Status</span>${receipt.status === "success" ? "✅ Success" : "❌ Failed"}</div><div class="row"><span class="label">From</span><code>${from.slice(0,6)}…${from.slice(-4)}</code></div><div class="row"><span class="label">To</span><code>${to.slice(0,6)}…${to.slice(-4)}</code></div><div class="row"><span class="label">Amount</span><strong>$${usdcAmount.toFixed(2)} USDC</strong></div><div class="row"><span class="label">Network</span>Base (eip155:8453)</div><p style="margin-top:1.5rem"><a href="/buy">← Browse all services</a> · <a href="/payment/confirm?tx=${tx}">↻ Refresh</a></p><footer style="margin-top:2rem;font-size:.8rem;color:#999">RAEN Fleet · <a href="https://rae-fleet-router.fly.dev">rae-fleet-router.fly.dev</a></footer></body></html>`;
+      res.type("text/html; charset=utf-8").send(html);
+    } catch (e) {
+      console.error("payment-confirm error:", e.message);
+      res.status(500).type("text/html; charset=utf-8").send(`<html><body><h1>Error verifying transaction</h1><p>${e.message}</p><p><a href="/buy">← Back to storefront</a></p></body></html>`);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
 // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
 // the handler cannot serve must never see a payment challenge: paying and then
 // hitting the handler's 400 would charge the buyer without service. This
