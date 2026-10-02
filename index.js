@@ -1186,7 +1186,6 @@ function renderBuyIndexHtml(walls) {
   <meta name="description" content="One shareable pay link per x402 service. USDC on Base, no API keys.">
   <meta property="og:title" content="Buy — RAE Fleet hosted pay links — USDC on Base, no API keys">
   <meta property="og:description" content="One shareable pay link per x402 service. USDC on Base, no API keys.">
-  <meta property="og:image" content="https://rae-fleet-router.fly.dev/card">
   <meta name="twitter:card" content="summary_large_image">
   <style>body{font-family:system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#111}
 .card{border:1px solid #ddd;border-radius:10px;padding:0.9rem 1.1rem;margin:0.7rem 0}
