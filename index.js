@@ -305,6 +305,10 @@ function pricingMarkdown() {
     "fleet live-402 price survey vs Coinbase CDP facilitator rates and the x402 Bazaar",
     "census percentiles (markdown at /benchmarks?format=md).",
     "",
+    "Hosted pay links: **GET [/buy](https://rae-fleet-router.fly.dev/buy)** — one shareable",
+    "pay-link page per fleet service with embedded x402 v2 PaymentRequirements mirrored",
+    "from the wall's own live challenge (machine variant /buy?format=json).",
+    "",
   ].join("\n");
 }
 
@@ -559,9 +563,27 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   openapi.paths["/benchmarks"] = {
     get: {
       summary: "Fleet x402 pricing benchmark vs Coinbase CDP facilitator rates and the x402 Bazaar census (free, no payment)",
-      description: "Dated survey (2026-09-28) of live 402 challenge amounts across fleet walls, per-price market percentiles, under/overpriced verdicts, manifest defects, and recommendations. Default JSON; ?format=md serves markdown. The live 402 challenge remains authoritative over this snapshot.",
+      description: "Dated survey (2026-09-28) of live 402 challenge amounts across fleet walls, per-price market percentiles, under/over verdicts, manifest defects, and recommendations. Default JSON; ?format=md serves markdown. The live 402 challenge remains authoritative over this snapshot.",
       parameters: [{ name: "format", in: "query", required: false, description: "md returns the human/markdown view", schema: { type: "string", enum: ["md"] } }],
       responses: { "200": { description: "Benchmark JSON (application/json), or text/markdown with ?format=md" } },
+    },
+  };
+  // EXEC-88 — hosted pay-link storefront (free; mirrors each wall's own surfaces)
+  openapi.paths["/buy"] = {
+    get: {
+      summary: "Hosted pay-link index: one shareable page per fleet x402 service (free, no payment)",
+      description: "HTML card index generated at request time from every configured wall's live /.well-known/x402.json (300 s cache). Unreachable walls are listed with status 'unreachable', never a stale price. ?format=json serves {generated_utc, items:[{slug,host,endpoint,method,price_usdc,network,payTo,asset,facilitator,updated_utc}]}.",
+      parameters: [{ name: "format", in: "query", required: false, description: "json returns the machine index", schema: { type: "string", enum: ["json"] } }],
+      responses: { "200": { description: "Pay-link index (text/html, or application/json with ?format=json)" } },
+    },
+  };
+  openapi.paths["/buy/{slug}"] = {
+    get: {
+      summary: "Single hosted pay link: embedded x402 v2 PaymentRequirements + copyable buy snippet (free, no payment)",
+      description: "Per-service pay page. The embedded PaymentRequirements mirrors the wall's LIVE 402 challenge (amount authoritative); manifest fallback only when the challenge probe fails, flagged in price_source. Pages with a non-canonical payTo or non-eip155:8453 network are withheld 503, never advertised. Unknown slug -> 404; unreachable wall -> 503 with Retry-After.",
+      parameters: [{ name: "slug", in: "path", required: true, description: "Service slug from GET /buy (e.g. nft-alpha)", schema: { type: "string" } },
+        { name: "format", in: "query", required: false, description: "json returns the PaymentRequirements document", schema: { type: "string", enum: ["json"] } }],
+      responses: { "200": { description: "Pay page (text/html, or application/json with ?format=json)" }, "404": { description: "Unknown slug" }, "503": { description: "Wall unreachable or route withheld by money guard (Retry-After set)" } },
     },
   };
   for (const [rk, rv] of Object.entries(routes)) {
@@ -586,7 +608,7 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/llms.txt", (req, res) => {
     const lines = Object.entries(routes).map(([rk, rv]) =>
       `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.\\nShareable pay links: GET /buy — one HTML page + embedded x402 PaymentRequirements per service (index at /buy, machine variant /buy?format=json).`);
   });
 }
 
@@ -662,6 +684,7 @@ function sampleJson() {
       machine_contract: "GET /openapi.json",
       x402_manifest: "GET /.well-known/x402.json",
       payment_failure_recovery: "GET /pay-failed (markdown) or /pay-failed?format=json",
+      buy_links: "GET /buy — hosted pay-link page per fleet service (embedded PaymentRequirements)",
       flagship: "POST /api/fleet-bundle — $0.10 USDC (nft-alpha + power-pack + tradingagents)",
       bundle_ladder: BUNDLE_LADDER.map((b) => ({ endpoint: `POST /api/bundle/${b.id}`, price: b.price, desc: b.desc })),
     },
@@ -843,7 +866,431 @@ app.get("/benchmarks", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// EXEC-41 — 400-before-402 pre-validation for the ladder routes. A body that
+// EXEC-88 — GET /buy + GET /buy/{slug}: hosted pay-link storefront, built
+// from the STRAT-70 contract (fleet_db/PAYLINK-SKU-SHEET-20260928.md).
+// Registered ABOVE paymentMiddleware — free forever, can never emit 402,
+// never moves money: every page is a read-only mirror of each wall's own
+// live machine surfaces (/x402.json manifest + unpaid POST 402 challenge).
+// Contract rules enforced in code:
+//  - prices are NEVER hardcoded in route source (identity config only);
+//    the live challenge is authoritative (§1.1–1.2), manifest is fallback (§1.3);
+//  - money guard: a page is served only when the advertised payTo equals
+//    CANONICAL_PAY_TO (full 40-hex, case-insensitive — royal-ruby wire-returns
+//    the checksummed form) and network is eip155:8453. Anything else is a
+//    503 withhold, never an advertisement of a foreign destination;
+//  - a wall whose surfaces fail is listed "unreachable" and its page 503s
+//    with Retry-After — never a stale price (§3 index rule);
+//  - each wall's own facilitator URL is echoed verbatim from its own data —
+//    the raen-portfolio raen-facilitator split-brain stays unsilenced until
+//    the fleet WRK decision lands (flags §6.1);
+//  - sample bodies come from the wall manifest extensions.bazaar.info.input.body
+//    and are rendered as REQUEST PARAMETERS only — never as a pay destination
+//    (flags §6.3, escrow placeholder 0x1111...).
+// ---------------------------------------------------------------------------
+const BUY_CACHE_TTL_MS = 300 * 1000;          // §3: 300 s TTL
+const BUY_FETCH_TIMEOUT_MS = 8000;
+const BUY_RETRY_AFTER = "300";
+
+// Identity-only config: host + canonical flagship endpoint (from the STRAT-70
+// §2 crawl of 2026-10-02T09:19Z). No prices live in this table.
+const BUY_WALLS = [
+  { app: "briefsnap-x402",       slug: "briefsnap",       flagship: "/api/summarize" },
+  { app: "dispatch-x402",        slug: "dispatch",        flagship: "/dispatch" },
+  { app: "dispute-forge-x402",   slug: "dispute-forge",   flagship: "/api/dispute-pack" },
+  { app: "escrow-x402",          slug: "escrow",          flagship: "/api/escrow/create" },
+  { app: "nanobanana-x402",      slug: "nanobanana",      flagship: "/api/generate-image" },
+  { app: "nft-alpha-x402",       slug: "nft-alpha",       flagship: "/api/nft-signal" },
+  { app: "power-pack-x402",      slug: "power-pack",      flagship: "/api/score-email" },
+  { app: "rae-fleet-router",     slug: "rae-fleet-router", flagship: "/api/fleet-bundle" },
+  { app: "raen-portfolio-x402",  slug: "raen-portfolio",  flagship: "/api/portfolio" },
+  { app: "royal-feel-x402",      slug: "royal-feel",      flagship: "/api/lint-copy", duplicates: ["/copy/lint"] },
+  { app: "royal-ruby-x402",      slug: "royal-ruby",      flagship: "/api/law-lookup" },
+  { app: "suprapack-x402",       slug: "suprapack",       flagship: "/api/find-skill" },
+  { app: "tradingagents-x402",   slug: "tradingagents",   flagship: "/api/analyze-ticker" },
+  { app: "vault-pro-x402",       slug: "vault-pro",       flagship: "/api/scaffold-project" },
+];
+
+// Slug rule (STRAT-70 §2): flagship = bare slug; additional endpoints extend
+// with __ + kebab tail. /api/<tail> strips the api/ prefix and joins inner
+// slashes with '_'; non-api paths join slashes with '-'.
+//   /api/bundle/market-starter -> bundle_market-starter
+//   /copy/lint                 -> copy-lint
+//   /api/extract-actions       -> extract-actions
+function buySlugTail(path) {
+  let t = String(path || "").replace(/^\/+|\/+$/g, "");
+  if (t.startsWith("api/")) return t.slice(4).split("/").join("_");
+  return t.split("/").join("-");
+}
+
+function microFromPrice(p) {
+  if (p === null || p === undefined || p === "") return null;
+  const m = String(p).match(/([0-9]+(?:\.[0-9]+)?)/);
+  return m ? String(Math.round(parseFloat(m[1]) * 1e6)) : null;
+}
+
+function usdFromMicro(micro) {
+  const v = Number(micro) / 1e6;
+  if (!Number.isFinite(v)) return null;
+  if (Number.isInteger(v)) return "$" + v.toFixed(2);
+  return "$" + v.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+// Money guard: full-address, case-insensitive canonical check + mainnet-only.
+// Returns null when safe to advertise, else the withhold reason.
+function buyGuard(network, payTo) {
+  if (String(network || "").toLowerCase() !== "eip155:8453") return "wrong_network";
+  const a = String(payTo || "").toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(a)) return "payto_malformed";
+  if (a !== CANONICAL_PAY_TO.toLowerCase()) return "payto_mismatch";
+  return null;
+}
+
+function escHtml(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// embedded PaymentRequirements block: escape < so JSON can never close the tag
+function embedPaymentRequirements(pr) {
+  return '<script type="application/x-402-payment-requirements">' +
+    JSON.stringify(pr).replace(/</g, "\\u003c") + "</script>";
+}
+function extractEmbeddedPR(html) {
+  const m = /<script type="application\/x-402-payment-requirements">([\s\S]*?)<\/script>/.exec(String(html || ""));
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch (_e) { return null; }
+}
+
+// --- 300 s TTL cache (successes only; failures re-probe next request) -------
+const buyCache = new Map();
+function buyCacheGet(key) {
+  const e = buyCache.get(key);
+  if (e && Date.now() - e.at < BUY_CACHE_TTL_MS) return e.val;
+  if (e) buyCache.delete(key);
+  return undefined;
+}
+function buyCacheSet(key, val) {
+  if (buyCache.size > 512) buyCache.clear();
+  buyCache.set(key, { at: Date.now(), val });
+}
+async function buyCached(key, producer) {
+  const hit = buyCacheGet(key);
+  if (hit !== undefined) return hit;
+  const val = await producer();
+  if (val && val.ok) buyCacheSet(key, val);
+  return val;
+}
+function buyCachedFetchJson(url) {
+  return buyCached("manifest:" + url, async () => {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(BUY_FETCH_TIMEOUT_MS) });
+      if (!res.ok) return { ok: false, error: "HTTP " + res.status };
+      const data = await res.json();
+      if (!data || typeof data !== "object" || !data.endpoints || typeof data.endpoints !== "object") {
+        return { ok: false, error: "malformed manifest" };
+      }
+      return { ok: true, data };
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e) };
+    }
+  });
+}
+function buyCachedChallenge(item) {
+  const body = JSON.stringify(item.sample_body || {});
+  return buyCached("challenge:" + item.endpoint_url + ":" + body, async () => {
+    try {
+      const res = await fetch(item.endpoint_url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(BUY_FETCH_TIMEOUT_MS),
+      });
+      const hdr = res.headers.get("payment-required") || res.headers.get("x-payment-required");
+      if (!hdr) return { ok: false, status: res.status, error: "no PAYMENT-REQUIRED header (status " + res.status + ")" };
+      let decoded;
+      try {
+        decoded = JSON.parse(Buffer.from(hdr, "base64url").toString("utf8"));
+      } catch (_e) {
+        decoded = JSON.parse(Buffer.from(hdr, "base64").toString("utf8"));
+      }
+      const accept = Array.isArray(decoded.accepts) && decoded.accepts.length ? decoded.accepts[0] : null;
+      if (!accept) return { ok: false, status: res.status, error: "challenge has no accepts[0]" };
+      return { ok: true, status: res.status, accept, resource: decoded.resource || null };
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e) };
+    }
+  });
+}
+
+// --- slug -> wall resolution (deterministic, single-wall page fetch) --------
+function buyWallForSlug(slug) {
+  const prefix = String(slug || "").split("__")[0];
+  return BUY_WALLS.find((w) => w.slug === prefix) || null;
+}
+
+// --- manifest -> buy items (pure; unit-tested) -------------------------------
+function buyItemsFromManifest(cfg, manifest, host) {
+  const eps = Object.entries(manifest.endpoints || {});
+  const paths = eps.map(([p]) => p);
+  let flagship = cfg.flagship;
+  if (!paths.includes(flagship) && paths.length === 1) flagship = paths[0];
+  const items = [];
+  const seen = new Set();
+  for (const [path, ep] of eps) {
+    if (!ep || typeof ep !== "object") continue;
+    const acc = ep.accepts || {};
+    const isDup = (cfg.duplicates || []).includes(path);
+    let slug = path === flagship ? cfg.slug : cfg.slug + "__" + buySlugTail(path);
+    if (seen.has(slug)) slug = slug + "__" + items.length;
+    seen.add(slug);
+    const amount_micro = microFromPrice(acc.price);
+    const guard = buyGuard(acc.network, acc.payTo);
+    let sample_body = {};
+    try { sample_body = ep.extensions.bazaar.info.input.body ?? {}; } catch (_e) { sample_body = {}; }
+    items.push({
+      slug,
+      host,
+      endpoint: path,
+      method: String(ep.method || "POST").toUpperCase(),
+      price_usdc: amount_micro === null ? null : Number(amount_micro) / 1e6,
+      amount_micro,
+      network: acc.network || null,
+      payTo: acc.payTo || null,
+      asset: acc.asset || (String(acc.network || "").toLowerCase() === "eip155:8453" ? MAINNET_USDC : null),
+      facilitator: (acc.extra && acc.extra.facilitator) || null,
+      description: ep.description || manifest.service && manifest.service.description || "",
+      service_description: (manifest.service && manifest.service.description) || "",
+      sample_body,
+      duplicate_of: isDup ? cfg.slug : null,
+      status: guard || "ok",
+      withhold: guard || null,
+      endpoint_url: "https://" + host + path,
+      updated_utc: new Date().toISOString(),
+    });
+  }
+  return items;
+}
+
+// --- live index assembly ------------------------------------------------------
+async function buildBuyIndex() {
+  const walls = await Promise.all(BUY_WALLS.map(async (cfg) => {
+    const host = cfg.app + ".fly.dev";
+    const r = await buyCachedFetchJson("https://" + host + "/.well-known/x402.json");
+    if (!r.ok) {
+      return { host, status: "unreachable", error: r.error,
+        items: [{ slug: cfg.slug, host, endpoint: cfg.flagship, method: "POST",
+          price_usdc: null, amount_micro: null, network: null, payTo: null, asset: null,
+          facilitator: null, description: "", duplicate_of: null, status: "unreachable",
+          endpoint_url: "https://" + host + cfg.flagship, updated_utc: new Date().toISOString() }] };
+    }
+    const items = buyItemsFromManifest(cfg, r.data, host);
+    return { host, status: items.length ? "ok" : "empty", error: items.length ? null : "no endpoints in manifest", items };
+  }));
+  return walls;
+}
+
+function buyItemJson(i) {
+  return { slug: i.slug, host: i.host, endpoint: i.endpoint, method: i.method,
+    price_usdc: i.price_usdc, amount_micro: i.amount_micro, network: i.network, payTo: i.payTo,
+    asset: i.asset, facilitator: i.facilitator, duplicate_of: i.duplicate_of, status: i.status,
+    updated_utc: i.updated_utc };
+}
+
+// --- page assembly -------------------------------------------------------------
+function prFromChallenge(item, ch) {
+  const a = ch.accept;
+  const res = ch.resource || {};
+  return {
+    scheme: a.scheme || "exact",
+    network: a.network || item.network,
+    amount: String(a.amount ?? item.amount_micro ?? ""),
+    asset: a.asset || item.asset || MAINNET_USDC,
+    payTo: a.payTo || item.payTo,
+    maxTimeoutSeconds: typeof a.maxTimeoutSeconds === "number" ? a.maxTimeoutSeconds : 300,
+    extra: a.extra || { name: "USD Coin", version: "2", facilitator: item.facilitator },
+    resource: {
+      url: res.url || item.endpoint_url,
+      method: String(res.method || item.method || "POST").toUpperCase(),
+      mimeType: res.mimeType || "application/json",
+    },
+  };
+}
+function prFromManifest(item) {
+  return {
+    scheme: "exact",
+    network: item.network,
+    amount: String(item.amount_micro ?? ""),
+    asset: item.asset || MAINNET_USDC,
+    payTo: item.payTo,
+    maxTimeoutSeconds: 300,
+    extra: { name: "USD Coin", version: "2", facilitator: item.facilitator },
+    resource: { url: item.endpoint_url, method: item.method, mimeType: "application/json" },
+  };
+}
+
+async function buyPage(slug) {
+  const cfg = buyWallForSlug(slug);
+  if (!cfg) return { code: 404, json: { error: "unknown slug", buy_index: "/buy" } };
+  const host = cfg.app + ".fly.dev";
+  const r = await buyCachedFetchJson("https://" + host + "/.well-known/x402.json");
+  if (!r.ok) return { code: 503, json: { error: "wall unreachable — /buy never shows stale prices", slug, host, retry_after: Number(BUY_RETRY_AFTER), updated_utc: new Date().toISOString() } };
+  const items = buyItemsFromManifest(cfg, r.data, host);
+  const item = items.find((i) => i.slug === slug);
+  if (!item) return { code: 404, json: { error: "unknown slug", buy_index: "/buy" } };
+  if (item.status === "unreachable") {
+    return { code: 503, json: { error: "wall unreachable", slug, host, retry_after: Number(BUY_RETRY_AFTER) } };
+  }
+  const ch = await buyCachedChallenge(item);
+  const pr = ch.ok ? prFromChallenge(item, ch) : prFromManifest(item);
+  const guard = buyGuard(pr.network, pr.payTo);
+  if (guard) {
+    // Fail-closed money guard: never advertise a non-canonical destination or
+    // a network mainnet buyers cannot pay on. This is a fleet defect signal,
+    // not a page.
+    return { code: 503, guard, json: {
+      error: "route withheld: " + guard + " — /buy never advertises a non-canonical money path",
+      slug, canonical_payTo: CANONICAL_PAY_TO,
+      retry_after: Number(BUY_RETRY_AFTER),
+    } };
+  }
+  const price_drift = !!(ch.ok && item.amount_micro && String(pr.amount) !== String(item.amount_micro));
+  return { code: 200, item, pr, source: ch.ok ? "live-402-challenge" : "manifest", price_drift,
+    json: {
+      ok: true, slug, host: item.host, endpoint: item.endpoint, method: item.method,
+      price_usdc: Number(pr.amount) / 1e6, amount_micro: String(pr.amount),
+      price_source: ch.ok ? "live-402-challenge" : "manifest", price_drift,
+      network: pr.network, asset: pr.asset, payTo: pr.payTo,
+      facilitator: (pr.extra && pr.extra.facilitator) || null,
+      duplicate_of: item.duplicate_of, updated_utc: new Date().toISOString(),
+      payment_requirements: pr,
+    } };
+}
+
+function renderBuyIndexHtml(walls) {
+  const items = walls.flatMap((w) => w.items);
+  const cards = items.map((i) => {
+    const badge = i.status === "ok"
+      ? escHtml(usdFromMicro(i.amount_micro) + " USDC")
+      : "<span class=\"status\">" + escHtml(i.status) + "</span>";
+    const payToTail = i.payTo ? "…" + escHtml(String(i.payTo).slice(-4)) : "";
+    return `<div class="card">
+  <h3><a href="/buy/${escHtml(i.slug)}">${escHtml(i.slug)}</a></h3>
+  <p class="desc">${escHtml(String(i.description || "").slice(0, 160))}</p>
+  <p class="price">${badge} · eip155:8453 · payTo ${payToTail}</p>
+  <p class="ep">${escHtml(i.method)} https://${escHtml(i.host)}${escHtml(i.endpoint)}</p>
+</div>`;
+  }).join("\n");
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buy — RAE Fleet hosted pay links</title>
+<meta name="description" content="One shareable pay link per x402 service. USDC on Base, no API keys.">
+<style>body{font-family:system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#111}
+.card{border:1px solid #ddd;border-radius:10px;padding:0.9rem 1.1rem;margin:0.7rem 0}
+.card h3{margin:0 0 .3rem}.desc{color:#444;margin:.2rem 0}.price{margin:.2rem 0;font-weight:600}
+.ep{font-family:ui-monospace,monospace;font-size:.8rem;color:#666;margin:.2rem 0}
+.status{color:#b00}.unreachable{opacity:.55}footer{margin-top:2rem;color:#555}</style>
+</head><body>
+<h1>Buy — RAE Fleet hosted pay links</h1>
+<p>Every card is generated at request time from the wall's own live machine
+surfaces (x402 manifest + 402 challenge), cached 300&nbsp;s. Machine variant:
+<code>GET /buy?format=json</code>.</p>
+${cards}
+<footer>Every wall on Base, USDC, no API keys — index at <code>/buy</code>.</footer>
+</body></html>`;
+}
+
+function renderBuyPageHtml(item, page) {
+  const pr = page.pr;
+  const price = usdFromMicro(pr.amount) || "—";
+  const bodyStr = JSON.stringify(item.sample_body || {});
+  const flags = [];
+  if (page.price_drift) flags.push("price_drift: true — live challenge amount differs from advertised manifest price; the LIVE amount shown here is authoritative");
+  if (item.duplicate_of) flags.push("duplicate endpoint of /buy/" + item.duplicate_of + " (same $2.00 service, kept for URL stability)");
+  if (page.source === "manifest") flags.push("price source: /.well-known/x402.json manifest (live challenge probe unavailable this refresh)");
+  const flagHtml = flags.length ? `<div class="flags">${flags.map((f) => "<p>⚠ " + escHtml(f) + "</p>").join("")}</div>` : "";
+  const snippet =
+`curl -s -X POST ${item.endpoint_url} \\
+  -H 'Content-Type: application/json' -d '${bodyStr}' \\
+  -H 'X-PAYMENT-RESPONSE: true' \\
+  --header 'Payment-Signature: <x402 payment payload>'`;
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(item.slug)} — ${escHtml(price)} USDC on Base (x402)</title>
+<meta property="og:type" content="product">
+<meta property="og:title" content="${escHtml(item.slug)} — ${escHtml(price)} USDC on Base (x402)">
+<meta property="og:description" content="${escHtml(String(item.description || "").slice(0, 180))} — pay-per-call USDC via x402 v2, no API key.">
+<link rel="alternate" type="application/json" href="?format=json">
+<style>body{font-family:system-ui,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#111}
+pre{background:#0d1117;color:#e6edf3;padding:1rem;border-radius:8px;overflow-x:auto;font-size:.85rem}
+.kv td{padding:.15rem .8rem .15rem 0;vertical-align:top;font-family:ui-monospace,monospace;font-size:.88rem}
+.flags p{background:#fff7e6;border:1px solid #f0c36d;padding:.5rem .8rem;border-radius:6px}
+footer{margin-top:2rem;color:#555}</style>
+</head><body>
+<h1>${escHtml(item.slug)}</h1>
+<p>${escHtml(item.description || "")}</p>
+<h2>${escHtml(price)} USDC · pay-per-call · no API key</h2>
+<table class="kv">
+<tr><td>Endpoint</td><td>${escHtml(item.method)} ${escHtml(item.endpoint_url)}</td></tr>
+<tr><td>Price</td><td>${escHtml(price)} = ${escHtml(String(pr.amount))} micro-USDC (6 decimals)</td></tr>
+<tr><td>Network</td><td>eip155:8453 (Base mainnet)</td></tr>
+<tr><td>Asset</td><td>${escHtml(pr.asset)} (USDC v2)</td></tr>
+<tr><td>payTo</td><td>${escHtml(pr.payTo)}</td></tr>
+<tr><td>Facilitator</td><td>${escHtml((pr.extra && pr.extra.facilitator) || "—")}</td></tr>
+<tr><td>Timeout</td><td>${escHtml(String(pr.maxTimeoutSeconds))} s</td></tr>
+</table>
+${flagHtml}
+<h2>Buy in one copy-paste</h2>
+<p>Plain POST first; payment second — that is the x402 handshake. The first
+unpaid POST returns HTTP 402 with a <code>PAYMENT-REQUIRED</code> challenge;
+sign a USDC EIP-3009 <code>transferWithAuthorization</code> for the challenge's
+<code>accepts[0].amount</code> to its <code>payTo</code>, re-send with
+<code>PAYMENT-SIGNATURE</code>.</p>
+<pre><code>${escHtml(snippet)}</code></pre>
+<h2>One-click (machine path)</h2>
+<p>Any x402 v2 client can pay straight from the embedded block below: read it,
+sign <code>amount</code> USDC to <code>payTo</code> on <code>network</code>,
+re-POST the <code>resource.url</code> with <code>PAYMENT-SIGNATURE</code>.
+Payment failed? Recovery recipes: <a href="/pay-failed">/pay-failed</a>.</p>
+<h2>Try free first</h2>
+<pre><code>curl -s https://${escHtml(item.host)}/sample</code></pre>
+${embedPaymentRequirements(pr)}
+<h2>Machine-readable</h2>
+<pre><code>${escHtml(JSON.stringify(pr, null, 2))}</code></pre>
+<p>Updated ${escHtml(page.json.updated_utc)} · JSON view: <a href="?format=json">?format=json</a></p>
+<footer>Every wall on Base, USDC, no API keys — index at <a href="/buy"><code>/buy</code></a>.</footer>
+</body></html>`;
+}
+
+// --- routes (registered ABOVE paymentMiddleware; free, never 402) ------------
+app.get("/buy", async (req, res) => {
+  const walls = await buildBuyIndex();
+  const items = walls.flatMap((w) => w.items.map(buyItemJson));
+  res.set("Cache-Control", "public, max-age=60");
+  if (String(req.query.format || "").toLowerCase() === "json") {
+    return res.json({ ok: true, free: true, service: "rae-fleet-router", page: "/buy index",
+      generated_utc: new Date().toISOString(), count: items.length,
+      canonical: { network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO },
+      items });
+  }
+  res.type("text/html; charset=utf-8").send(renderBuyIndexHtml(walls.map((w) => ({ ...w, items: w.items.map((i) => i) })))) ;
+});
+
+app.get("/buy/:slug", async (req, res) => {
+  const slug = decodeURIComponent(req.params.slug || "");
+  const page = await buyPage(slug);
+  res.set("Cache-Control", "public, max-age=60");
+  if (page.code === 404) return res.status(404).json(page.json);
+  if (page.code === 503) {
+    res.set("Retry-After", BUY_RETRY_AFTER);
+    return res.status(503).json(page.json);
+  }
+  if (String(req.query.format || "").toLowerCase() === "json") return res.json(page.json);
+  res.type("text/html; charset=utf-8").send(renderBuyPageHtml(page.item, page));
+});
+
+// ---------------------------------------------------------------------------
+// EXEC-41 — 400-before-402 pre-validation for the ladder routes.
 // the handler cannot serve must never see a payment challenge: paying and then
 // hitting the handler's 400 would charge the buyer without service. This
 // middleware is registered ABOVE paymentMiddleware() so invalid requests
@@ -914,6 +1361,8 @@ if (require.main === module) {
 }
 
 // Exported for test_bundle_ladder.cjs (STRAT-26 acceptance math),
-// test_prevalidation.cjs (EXEC-41 charging-order acceptance), and
-// test_pay_failed.cjs (PLAN-32 recovery-surface acceptance).
-module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors, payFailedJson, payFailedMarkdown, payFailedModes, CANONICAL_PAY_TO, benchmarksJson, benchmarksMarkdown, BENCHMARK_SURVEY };
+// test_prevalidation.cjs (EXEC-41 charging-order acceptance),
+// test_pay_failed.cjs (PLAN-32 recovery-surface acceptance), and
+// test_buy_routes.cjs (EXEC-88 hosted pay-link acceptance).
+module.exports = { app, BUNDLE_LADDER, bundleSumOfParts, PAID_ROUTES, FLEET, bundleBodyErrors, payFailedJson, payFailedMarkdown, payFailedModes, CANONICAL_PAY_TO, benchmarksJson, benchmarksMarkdown, BENCHMARK_SURVEY,
+  BUY_WALLS, buySlugTail, microFromPrice, usdFromMicro, buyGuard, buyItemsFromManifest, buildBuyIndex, buyPage, extractEmbeddedPR, embedPaymentRequirements, buyCache, MAINNET_USDC };
