@@ -1401,6 +1401,74 @@ app.get("/buy", async (req, res) => {
   res.type("text/html; charset=utf-8").send(renderBuyIndexHtml(walls.map((w) => ({ ...w, items: w.items.map((i) => i) })))) ;
 });
 
+// EXEC-92 — GET /buy/gift: hosted gift-card landing page with 3 gift-note templates.
+// MUST be registered BEFORE /buy/:slug so Express matches the exact path first.
+const GIFT_NOTE_TEMPLATES = [
+  { id: "builder", title: "For the builder", emoji: "\u{1F3D7}",
+    note: "You build agents \u2014 here\u2019s a wall to call. Pick any endpoint, pay once, and the data\u2019s yours. No subscription, no API key. Just USDC on Base." },
+  { id: "curious", title: "For the curious", emoji: "\u{1F50D}",
+    note: "I found these paid APIs that charge per call in USDC \u2014 pennies for NFT data, market signals, even legal research. Try the $0.02 one first." },
+  { id: "just-because", title: "Just because", emoji: "\u{1F381}",
+    note: "Think of this as a prepaid API call. No monthly bill, no commitment \u2014 one call\u2019s worth of data on me. Choose whichever wall fits your project." },
+];
+app.get("/buy/gift", async (req, res) => {
+  const walls = await buildBuyIndex();
+  const items = walls.flatMap((w) => w.items.map(buyItemJson));
+  const giftCardHtml = GIFT_NOTE_TEMPLATES.map((t) =>
+    `<div class="note-card" onclick="selectNote('${escHtml(t.id)}')">
+      <div class="note-emoji">${t.emoji}</div>
+      <div class="note-title">${escHtml(t.title)}</div>
+      <div class="note-text">${escHtml(t.note)}</div>
+      <button class="note-btn" data-id="${escHtml(t.id)}" data-note="${escHtml(t.note)}">Choose this note \u2192</button>
+    </div>`
+  ).join("\n");
+  const wallOpts = items.map((i) =>
+    `<option value="${escHtml(i.slug)}">${escHtml(i.slug)} \u2014 ${escHtml(String(i.price_usdc ?? "?"))}</option>`
+  ).join("\n");
+  res.type("text/html; charset=utf-8").send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gift a Wall \u2014 RAE Fleet</title>
+<meta name="description" content="Share a paid API wall as a gift. Choose a wall, pick a note, send the link.">
+<style>body{font-family:system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#111}
+h1{margin-bottom:.3rem}.sub{color:#555;margin:.5rem 0}
+.note-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin:1.5rem 0}
+.note-card{border:1px solid #ddd;border-radius:12px;padding:1rem;text-align:center;cursor:pointer}
+.note-emoji{font-size:2.5rem;line-height:1.2}.note-title{font-weight:700;font-size:1.1rem;margin:.3rem 0}
+.note-text{color:#444;font-size:.9rem;margin:.5rem 0;line-height:1.5}
+.note-btn{background:#eee;border:1px solid #ccc;border-radius:6px;padding:.4rem 1rem;cursor:pointer;font-size:.85rem;margin-top:.5rem}
+.note-btn:hover{background:#ddd}
+.selector{margin:1.5rem 0;padding:1rem;border:1px solid #ddd;border-radius:10px;background:#fafafa}
+.selector select,.selector input{font-size:1rem;padding:.3rem .5rem;margin:.3rem 0;border-radius:6px;border:1px solid #ccc}
+.selector button{padding:.5rem 1.5rem;background:#06c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1rem}
+#preview{border:1px solid #e0e0e0;border-radius:10px;padding:.8rem 1rem;margin:1rem 0;background:#fffdf5;display:none;line-height:1.5;color:#333;font-style:italic}
+#preview strong{color:#111}
+footer{margin-top:2rem;color:#555;font-size:.85rem}</style>
+</head><body>
+<h1>\u{1F381} Gift a Wall</h1>
+<p class="sub">Share a paid API endpoint as a gift. Pick a wall, write or choose a note, then copy the link and send it. The recipient opens the wall page with your message.</p>
+<div class="note-grid">${giftCardHtml}</div>
+<div class="selector">
+<p><strong>1. Pick a wall</strong></p>
+<select id="slug-select"><option value="">\u2014 choose \u2014</option>${wallOpts}</select>
+<p><strong>2. Your message</strong> <em>(optional)</em></p>
+<input type="text" id="gift-note" size="60" maxlength="200" placeholder="e.g. Try this \u2014 I paid for your first call \u2192" value="">
+<p><strong>3. Share the link</strong></p>
+<button onclick="generateGiftLink()">\u{1F517} Generate gift link</button>
+<div id="preview"></div>
+</div>
+<script>
+function selectNote(id){const c=document.querySelectorAll('.note-card');c.forEach(x=>x.style.outline='none');
+const card=[...c].find(x=>x.querySelector('.note-btn')?.dataset?.id===id);if(card){card.style.outline='2px solid #06c';card.style.outlineOffset='-1px'}
+const note=[...document.querySelectorAll('.note-btn')].find(b=>b.dataset.id===id)?.dataset?.note;if(note)document.getElementById('gift-note').value=note}
+function generateGiftLink(){const s=document.getElementById('slug-select').value;const n=encodeURIComponent(document.getElementById('gift-note').value.trim());const p=document.getElementById('preview');if(!s){p.style.display='block';p.innerHTML='<strong>Please select a wall first.</strong>';return}
+const url=window.location.origin+'/buy/'+s+(n?'?gift_note='+n:'?gift=1');p.style.display='block';p.innerHTML='<strong>Your gift link:</strong><br><code style="display:block;padding:.3rem .6rem;background:#eee;border-radius:4px;word-break:break-all;margin:.3rem 0;font-size:.85rem">'+url+'</code><button style="margin:.3rem 0;padding:.2rem .8rem;background:#eee;border:1px solid #ccc;border-radius:4px;cursor:pointer" onclick="navigator.clipboard.writeText(\''+url+'\')">\u{1F4CB} Copy</button>'}
+</script>
+<p style="margin-top:.5rem">\u2190 <a href="/buy">Back to wall index</a></p>
+<footer>RAEN Fleet \u2022 Gift links do not require a recipient account \u2014 just a wallet that holds USDC on Base. <a href="/buy?format=json">JSON</a></footer>
+</body></html>`);
+});
+
 app.get("/buy/:slug", async (req, res) => {
   const slug = decodeURIComponent(req.params.slug || "");
   const page = await buyPage(slug);
@@ -1414,79 +1482,6 @@ app.get("/buy/:slug", async (req, res) => {
     const giftNote = String(req.query.gift_note || req.query.gift || "").trim();
     res.type("text/html; charset=utf-8").send(renderBuyPageHtml(page.item, page, giftNote));
   });
-
-  // EXEC-92 — GET /buy/gift: hosted gift-card landing page with 3 gift-note templates.
-  // Free route (above paymentMiddleware; never 402).
-  const GIFT_NOTE_TEMPLATES = [
-    { id: "builder", title: "For the builder", emoji: "\u{1F3D7}",
-      note: "You build agents \u2014 here\u2019s a wall to call. Pick any endpoint, pay once, and the data\u2019s yours. No subscription, no API key. Just USDC on Base." },
-    { id: "curious", title: "For the curious", emoji: "\u{1F50D}",
-      note: "I found these paid APIs that charge per call in USDC \u2014 pennies for NFT data, market signals, even legal research. Try the $0.02 one first." },
-    { id: "just-because", title: "Just because", emoji: "\u{1F381}",
-      note: "Think of this as a prepaid API call. No monthly bill, no commitment \u2014 one call\u2019s worth of data on me. Choose whichever wall fits your project." },
-  ];
-  app.get("/buy/gift", async (req, res) => {
-    const walls = await buildBuyIndex();
-    const items = walls.flatMap((w) => w.items.map(buyItemJson));
-    const giftCardHtml = GIFT_NOTE_TEMPLATES.map((t) =>
-      `<div class="note-card" onclick="selectNote('${escHtml(t.id)}')">
-        <div class="note-emoji">${t.emoji}</div>
-        <div class="note-title">${escHtml(t.title)}</div>
-        <div class="note-text">${escHtml(t.note)}</div>
-        <button class="note-btn" data-id="${escHtml(t.id)}" data-note="${escHtml(t.note)}">Choose this note \u2192</button>
-      </div>`
-    ).join("\n");
-    const wallOpts = items.map((i) =>
-      `<option value="${escHtml(i.slug)}">${escHtml(i.slug)} \u2014 ${escHtml(String(i.price_usdc ?? "?"))}</option>`
-    ).join("\n");
-    res.type("text/html; charset=utf-8").send(`<!doctype html>
-  <html lang="en"><head><meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gift a Wall \u2014 RAE Fleet</title>
-  <meta name="description" content="Share a paid API wall as a gift. Choose a wall, pick a note, send the link.">
-  <style>body{font-family:system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#111}
-  h1{margin-bottom:.3rem}.sub{color:#555;margin:.5rem 0}
-  .note-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin:1.5rem 0}
-  .note-card{border:1px solid #ddd;border-radius:12px;padding:1rem;text-align:center;cursor:pointer}
-  .note-emoji{font-size:2.5rem;line-height:1.2}.note-title{font-weight:700;font-size:1.1rem;margin:.3rem 0}
-  .note-text{color:#444;font-size:.9rem;margin:.5rem 0;line-height:1.5}
-  .note-btn{background:#eee;border:1px solid #ccc;border-radius:6px;padding:.4rem 1rem;cursor:pointer;font-size:.85rem;margin-top:.5rem}
-  .note-btn:hover{background:#ddd}
-  .selector{margin:1.5rem 0;padding:1rem;border:1px solid #ddd;border-radius:10px;background:#fafafa}
-  .selector select,.selector input{font-size:1rem;padding:.3rem .5rem;margin:.3rem 0;border-radius:6px;border:1px solid #ccc}
-  .selector button{padding:.5rem 1.5rem;background:#06c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1rem}
-  #preview{border:1px solid #e0e0e0;border-radius:10px;padding:.8rem 1rem;margin:1rem 0;background:#fffdf5;display:none;line-height:1.5;color:#333;font-style:italic}
-  #preview strong{color:#111}
-  footer{margin-top:2rem;color:#555;font-size:.85rem}</style>
-  </head><body>
-  <h1>\u{1F381} Gift a Wall</h1>
-  <p class="sub">Share a paid API endpoint as a gift. Pick a wall, write or choose a note, then copy the link and send it. The recipient opens the wall page with your message.</p>
-  <div class="note-grid">${giftCardHtml}</div>
-  <div class="selector">
-  <p><strong>1. Pick a wall</strong></p>
-  <select id="slug-select"><option value="">\u2014 choose \u2014</option>${wallOpts}</select>
-  <p><strong>2. Your message</strong> <em>(optional)</em></p>
-  <input type="text" id="gift-note" size="60" maxlength="200" placeholder="e.g. Try this \u2014 I paid for your first call \u2192" value="">
-  <p><strong>3. Share the link</strong></p>
-  <button onclick="generateGiftLink()">\u{1F517} Generate gift link</button>
-  <div id="preview"></div>
-  </div>
-  <script>
-  function selectNote(id){const c=document.querySelectorAll('.note-card');c.forEach(x=>x.style.outline='none');
-  const card=[...c].find(x=>x.querySelector('.note-btn')?.dataset?.id===id);if(card){card.style.outline='2px solid #06c';card.style.outlineOffset='-1px'}
-  const note=[...document.querySelectorAll('.note-btn')].find(b=>b.dataset.id===id)?.dataset?.note;if(note)document.getElementById('gift-note').value=note}
-  function generateGiftLink(){const s=document.getElementById('slug-select').value;const n=encodeURIComponent(document.getElementById('gift-note').value.trim());const p=document.getElementById('preview');if(!s){p.style.display='block';p.innerHTML='<strong>Please select a wall first.</strong>';return}
-  const url=window.location.origin+'/buy/'+s+(n?'?gift_note='+n:'?gift=1');p.style.display='block';p.innerHTML='<strong>Your gift link:</strong><br><code style="display:block;padding:.3rem .6rem;background:#eee;border-radius:4px;word-break:break-all;margin:.3rem 0;font-size:.85rem">'+url+'</code><button style="margin:.3rem 0;padding:.2rem .8rem;background:#eee;border:1px solid #ccc;border-radius:4px;cursor:pointer" onclick="navigator.clipboard.writeText(\''+url+'\')">\u{1F4CB} Copy</button>'}
-  </script>
-  <p style="margin-top:.5rem">\u2190 <a href="/buy">Back to wall index</a></p>
-  <footer>RAEN Fleet \u2022 Gift links do not require a recipient account \u2014 just a wallet that holds USDC on Base. <a href="/buy?format=json">JSON</a></footer>
-  </body></html>`);
-  });
-
-  // EXEC-92 — gift_note banner on /buy/:slug when ?gift_note= is present
-  // (handled by modifying renderBuyPageHtml to pass through and render the query param).
-  // Re-used below on line ~1336: renderBuyPageHtml includes gift_note.
-  // No extra route needed — the existing /buy/:slug picks up the query param.
 
   // Base mainnet public client for on-chain queries (eth_getTransactionReceipt, etc.)
   const BASE_RPC_URL = process.env.BASE_RPC_URL || "https://mainnet.base.org";
