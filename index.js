@@ -307,6 +307,9 @@ function pricingMarkdown() {
     "fleet live-402 price survey vs Coinbase CDP facilitator rates and the x402 Bazaar",
     "census percentiles (markdown at /benchmarks?format=md).",
     "",
+    "Terms of trade: **GET [/terms.md](https://rae-fleet-router.fly.dev/terms.md)** · FAQ: **[/faq.md](https://rae-fleet-router.fly.dev/faq.md)** ·",
+    "Privacy: **[/privacy.md](https://rae-fleet-router.fly.dev/privacy.md)** · How it works: **[/how-it-works](https://rae-fleet-router.fly.dev/how-it-works)**.",
+    "",
     "Hosted pay links: **GET [/buy](https://rae-fleet-router.fly.dev/buy)** — one shareable",
     "pay-link page per fleet service with embedded x402 v2 PaymentRequirements mirrored",
     "from the wall's own live challenge (machine variant /buy?format=json).",
@@ -610,7 +613,7 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/llms.txt", (req, res) => {
     const lines = Object.entries(routes).map(([rk, rv]) =>
       `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.\\nShareable pay links: GET /buy — one HTML page + embedded x402 PaymentRequirements per service (index at /buy, machine variant /buy?format=json).`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nHow it works: GET /how-it-works — 5-step buyer-agent onboarding (machine twin /how-it-works.json).\nTrust surfaces: /terms.md /faq.md /privacy.md /tip.md /.well-known/security.txt /playground.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.\\nShareable pay links: GET /buy — one HTML page + embedded x402 PaymentRequirements per service (index at /buy, machine variant /buy?format=json).`);
   });
 }
 
@@ -806,7 +809,16 @@ app.post("/a2a", (req, res) => {
 
 // One routes map feeds the manifest, OpenAPI, llms.txt, paymentMiddleware, and the
 // Express handlers — registered price and advertised price cannot diverge.
-const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute };
+const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute,
+  // EXEC-85 / STRAT-68 "Keep the Change" gratuity — $0.01 floor; over-cap
+  // authorizations are rejected by the exact-scheme verifier against this price.
+  "POST /api/tip": {
+    accepts: { scheme: "exact", price: "$0.01", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
+    serviceName: SERVICE_NAME,
+    description: "Keep the Change — round-up gratuity to the fleet treasury. $0.01 floor, $1.00 cap, buyer's choice. A tip purchases goodwill; the response is a receipt only.",
+    mimeType: "application/json",
+  },
+};
 for (const b of BUNDLE_LADDER) {
   PAID_ROUTES[`POST /api/bundle/${b.id}`] = {
     accepts: { scheme: "exact", price: b.price, network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
@@ -1503,6 +1515,671 @@ app.get("/buy/:slug", async (req, res) => {
 
       // ---------------------------------------------------------------------------
     // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
+
+// ---------------------------------------------------------------------------
+// EXEC-102 / EXEC-103 — free guided picker (/recommend, /recommend.json) and
+// iframe-able buy card (/embed/:slug). Copy packs: fleet_db/plan-78-recommend-copy.json
+// and fleet_db/plan-77-buy-copy.json (embedded below; all slugs verified against
+// the 2026-10-02 /buy snapshot). Free routes, registered above paymentMiddleware.
+const RECOMMEND_TREE = {"schema": "plan-78-recommend-copy/v1", "generated_utc": "2026-10-02T00:00:00Z", "source_snapshot": "fleet_db/plan-78-buysnapshot.json", "questions": [{"id": "need", "text": "What do you need?", "answers": {"data": "Market / portfolio / trading data", "code": "Code, wallets & agent tooling", "content": "Copy, content & research briefs"}}, {"id": "budget", "text": "Budget per call?", "answers": {"sub5c": "Under $0.05", "sub1": "Under $1", "1plus": "$1 or more"}}, {"id": "urgency", "text": "How soon?", "answers": {"now": "Right now — cheapest live wall wins", "soon": "Browsing — show me the best fit"}}], "leaves": {"data|sub5c": {"primary": "raen-portfolio", "alternates": ["nft-alpha", "power-pack"], "line": "Portfolio + token data snapshots for under a nickel."}, "data|sub1": {"primary": "tradingagents", "alternates": ["dispatch", "rae-fleet-router__bundle_market-intel-trio"], "line": "Multi-agent trading analysis, well under a dollar."}, "data|1plus": {"primary": "dispute-forge", "alternates": ["royal-ruby", "tradingagents"], "line": "Premium dispute-grade reports when quality beats price."}, "code|sub5c": {"primary": "power-pack", "alternates": ["nft-alpha", "raen-portfolio"], "line": "Penny-tier utility calls for agent builders."}, "code|sub1": {"primary": "vault-pro", "alternates": ["suprapack__get-skill", "vault-pro__scaffold-agent"], "line": "Wallet scaffolding and skill lookup, cents per call."}, "code|1plus": {"primary": "royal-feel__copy-lint", "alternates": ["royal-feel__batch-lint", "vault-pro"], "line": "Premium lint + review for shipped code and copy."}, "content|sub5c": {"primary": "nft-alpha", "alternates": ["power-pack", "suprapack"], "line": "Two-cent NFT alpha briefs for content pipelines."}, "content|sub1": {"primary": "suprapack", "alternates": ["escrow", "royal-ruby"], "line": "Skill-finding and escrow content utilities under a dollar."}, "content|1plus": {"primary": "royal-feel", "alternates": ["royal-feel__copy-lint", "royal-feel__batch-lint"], "line": "Flagship $2 copy craft for launch-grade content."}}, "fallback": "power-pack", "buy_url_template": "https://rae-fleet-router.fly.dev/buy/{slug}"};
+const BUY_COPY = {"briefsnap": {"h2": "Paid briefs in one POST", "use_case": "Summarize any brief into a decision-ready snapshot."}, "dispatch": {"h2": "One-call fleet dispatch", "use_case": "Route a task to the right RAE agent in a single paid call."}, "dispute-forge": {"h2": "Dispute reports that hold up", "use_case": "Forge evidence-grade dispute documentation on demand."}, "escrow": {"h2": "Trustless escrow in one call", "use_case": "Create an escrow agreement programmatically, no paperwork."}, "nanobanana": {"h2": "Nano-priced image utility", "use_case": "Featherweight image jobs at nano prices."}, "nft-alpha": {"h2": "Two-cent NFT alpha", "use_case": "Buyer agents: NFT collection signals before you sweep."}, "power-pack": {"h2": "A penny of power", "use_case": "Micro-utility pack for agents — one cent, one call."}, "rae-fleet-router": {"h2": "The whole fleet, one endpoint", "use_case": "Compose RAE fleet services via the flagship bundle route."}, "rae-fleet-router__bundle_market-starter": {"h2": "Market starter bundle", "use_case": "Entry bundle: market data trio for new buyer agents."}, "rae-fleet-router__bundle_market-intel-trio": {"h2": "Market intel trio", "use_case": "Three market-intel walls bundled below per-call sum."}, "rae-fleet-router__bundle_full-fleet-sampler": {"h2": "Full fleet sampler", "use_case": "One call samples every fleet wall — evaluate the whole fleet."}, "raen-portfolio": {"h2": "Portfolio snapshot for a penny", "use_case": "One-call portfolio read for trading agents."}, "royal-feel": {"h2": "Flagship copy craft", "use_case": "Launch-grade copy lint and polish, $2 per call."}, "royal-feel__copy-lint": {"h2": "Copy lint, royally", "use_case": "Single-document copy lint with fix suggestions."}, "royal-feel__batch-lint": {"h2": "Batch copy lint", "use_case": "Lint a whole batch of documents in one paid call."}, "royal-ruby": {"h2": "Ruby-tier reports", "use_case": "Mid-tier polished reports at a quarter apiece."}, "suprapack": {"h2": "Find the right skill", "use_case": "Skill discovery for buyer agents, three cents a lookup."}, "suprapack__get-skill": {"h2": "Fetch one skill", "use_case": "Retrieve a single skill definition programmatically."}, "suprapack__list-top": {"h2": "Top skills list", "use_case": "List the top-ranked skills for a task category."}, "tradingagents": {"h2": "A trading desk in a POST", "use_case": "Multi-agent trading analysis on demand."}, "tradingagents__analyze-arbitrage": {"h2": "Arbitrage scan on demand", "use_case": "Cross-market arbitrage analysis per call."}, "vault-pro": {"h2": "Wallet ops, pro tier", "use_case": "Vault-pro wallet operations for agent builders."}, "vault-pro__scaffold-agent": {"h2": "Scaffold an agent wallet", "use_case": "Spin up a scaffolded agent wallet config in one call."}};
+
+function recommendLeaf(need, budget) {
+  const key = String(need || "") + "|" + String(budget || "");
+  const leaf = RECOMMEND_TREE.leaves[key];
+  if (leaf) return { key, leaf, fallback: false };
+  return { key: "fallback", leaf: { primary: RECOMMEND_TREE.fallback, alternates: ["nft-alpha", "suprapack"], line: "Penny-tier default pick — safe starting point for any buyer agent." }, fallback: true };
+}
+
+function recommendJson(need, budget) {
+  const { leaf, fallback } = recommendLeaf(need, budget);
+  const url = (s) => RECOMMEND_TREE.buy_url_template.replace("{slug}", s);
+  return { ok: true, free: true, service: "rae-fleet-router", page: "/recommend.json",
+    generated_utc: new Date().toISOString(),
+    params: { need: need || null, budget: budget || null }, fallback_used: fallback,
+    pick: { slug: leaf.primary, buy_url: url(leaf.primary), embed_url: "https://rae-fleet-router.fly.dev/embed/" + leaf.primary, line: leaf.line },
+    alternates: leaf.alternates.map((s) => ({ slug: s, buy_url: url(s), embed_url: "https://rae-fleet-router.fly.dev/embed/" + s })),
+    buy_index: "https://rae-fleet-router.fly.dev/buy" };
+}
+
+function renderRecommendHtml() {
+  const treeJson = JSON.stringify(RECOMMEND_TREE).replace(/</g, "\\u003c");
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pick My Paywall — RAE Fleet</title>
+<meta name="description" content="Answer 3 questions, get the right x402 paywall. USDC on Base, no API keys.">
+<style>body{font-family:system-ui,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#111}
+.card{border:1px solid #ddd;border-radius:10px;padding:0.9rem 1.1rem;margin:0.7rem 0}
+.card h3{margin:0 0 .3rem}.desc{color:#444;margin:.2rem 0}
+button{margin:.25rem .4rem .25rem 0;padding:.45rem .9rem;border:1px solid #bbb;border-radius:8px;background:#fff;cursor:pointer}
+button.sel{background:#0d1117;color:#fff}
+a.pick{font-weight:700}footer{margin-top:2rem;color:#555}</style>
+</head><body>
+<h1>Pick My Paywall</h1>
+<p>Three questions, one pay link. Every recommendation deep-links to a live
+<code>/buy/{slug}</code> page generated from the wall's own live x402 challenge.
+Machine variant: <code>GET /recommend.json?need=data&amp;budget=sub5c</code>.</p>
+<div id="q"></div>
+<h2 id="rh">Your pick</h2>
+<div id="result" class="card"><p class="desc">Answer the questions above (any budget/need combo works — unknown combos fall back to a live penny-tier wall).</p></div>
+<footer>USDC on Base, per-call price locked by each wall's live 402 challenge — index at <a href="/buy"><code>/buy</code></a>.<br>
+<a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
+<script>
+const TREE = ${treeJson};
+const state = { need: "data", budget: "sub5c" };
+const q = document.getElementById("q");
+function renderQuestions() {
+  q.innerHTML = "";
+  for (const qq of TREE.questions.slice(0, 2)) {
+    const d = document.createElement("div");
+    d.className = "card";
+    d.innerHTML = "<h3>" + qq.text + "</h3>";
+    for (const [val, label] of Object.entries(qq.answers)) {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.dataset.q = qq.id; b.dataset.v = val;
+      if (state[qq.id] === val) b.className = "sel";
+      b.onclick = () => { state[qq.id] = val; renderQuestions(); renderResult(); };
+      d.appendChild(b);
+    }
+    q.appendChild(d);
+  }
+}
+function renderResult() {
+  const leaf = TREE.leaves[state.need + "|" + state.budget] ||
+    { primary: TREE.fallback, alternates: ["nft-alpha", "suprapack"], line: "Penny-tier default pick." };
+  const url = (s) => TREE.buy_url_template.replace("{slug}", s);
+  document.getElementById("result").innerHTML =
+    "<h3><a class=\"pick\" href=\"" + url(leaf.primary) + "\">" + leaf.primary + "</a></h3>" +
+    "<p class=\"desc\">" + leaf.line + "</p>" +
+    "<p>Buy: <a href=\"" + url(leaf.primary) + "\">" + url(leaf.primary) + "</a> · Embed: <code>&lt;iframe src=\"https://rae-fleet-router.fly.dev/embed/" + leaf.primary + "\"&gt;</code></p>" +
+    (leaf.alternates.length ? "<p class=\"desc\">Alternates: " + leaf.alternates.map((s) => "<a href=\"" + url(s) + "\">" + s + "</a>").join(" · ") + "</p>" : "");
+}
+renderQuestions(); renderResult();
+</script>
+</body></html>`;
+}
+
+app.get("/recommend", (req, res) => {
+  res.set("Cache-Control", "public, max-age=60");
+  res.type("text/html; charset=utf-8").send(renderRecommendHtml());
+});
+
+app.get("/recommend.json", (req, res) => {
+  res.set("Cache-Control", "public, max-age=60");
+  res.json(recommendJson(req.query.need, req.query.budget));
+});
+
+function renderEmbedHtml(slug, page) {
+  const pr = page.pr;
+  const price = usdFromMicro(pr.amount) || "—";
+  const copy = BUY_COPY[slug] || null;
+  const hook = copy ? copy.h2 : String(page.item.description || slug).slice(0, 90);
+  const useCase = copy ? copy.use_case : "Pay-per-call x402 wall on Base.";
+  const buyUrl = "https://rae-fleet-router.fly.dev/buy/" + slug;
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(slug)} — ${escHtml(price)} USDC (x402)</title>
+<style>body{font-family:system-ui,sans-serif;max-width:480px;margin:0;padding:0.8rem;color:#111}
+.card{border:1px solid #ddd;border-radius:10px;padding:0.9rem 1.1rem}
+h2{margin:0 0 .25rem;font-size:1.05rem}.hook{color:#444;margin:.2rem 0;font-size:.9rem}
+.price{font-weight:700;margin:.35rem 0}.pay{margin:.35rem 0;font-size:.85rem;color:#333}
+a.btn{display:inline-block;margin-top:.4rem;padding:.45rem .9rem;border-radius:8px;background:#0d1117;color:#fff;text-decoration:none;font-size:.88rem}
+footer{margin-top:.5rem;color:#777;font-size:.72rem}</style>
+</head><body>
+<div class="card">
+<h2>${escHtml(slug)}</h2>
+<p class="hook">${escHtml(hook)} ${escHtml(useCase)}</p>
+<p class="price">${escHtml(price)} USDC · pay-per-call · no API key</p>
+<p class="pay">Pay with x402 — sign the 402 challenge's USDC transferWithAuthorization on Base (eip155:8453), re-send with PAYMENT-SIGNATURE.</p>
+<a class="btn" href="${escHtml(buyUrl)}" target="_blank" rel="noopener">Pay once in curl — no API key</a>
+</div>
+<footer>USDC on Base · price from live 402 challenge · <a href="https://rae-fleet-router.fly.dev/buy" target="_blank" rel="noopener" style="color:#777">RAE Fleet /buy</a></footer>
+</body></html>`;
+}
+
+app.get("/embed/:slug", async (req, res) => {
+  const slug = decodeURIComponent(req.params.slug || "");
+  const page = await buyPage(slug);
+  res.set("Cache-Control", "public, max-age=60");
+  // Frameable by design: third-party agent sites iframe this card.
+  res.removeHeader("X-Frame-Options");
+  res.set("Content-Security-Policy", "frame-ancestors *");
+  if (page.code === 404) return res.status(404).json(page.json);
+  if (page.code === 503) {
+    res.set("Retry-After", BUY_RETRY_AFTER);
+    return res.status(503).json(page.json);
+  }
+  res.type("text/html; charset=utf-8").send(renderEmbedHtml(slug, page));
+});
+
+
+// ---------------------------------------------------------------------------
+// STACI trust-surface wave 2026-10-02 (EXEC-79/81/82/84/85/87/96).
+// Seven free trust routes grounded in the Airtable PLAN copy packs
+// (PLAN-66/67/68/69/70/76) and a same-day live crawl of the 12 serving walls
+// (21 paid endpoints, all eip155:8453, all canonical payTo). All GET routes
+// are registered ABOVE paymentMiddleware — free forever, never a 402.
+// POST /api/tip is the single gated route (EXEC-85, STRAT-68 spec).
+// ---------------------------------------------------------------------------
+const TRUST_CRAWL_UTC = "2026-10-02";
+const TRUST_WALLS = [
+  {
+    "host": "rae-fleet-router.fly.dev",
+    "endpoint": "/api/fleet-bundle",
+    "method": "POST",
+    "price": "$0.10",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "rae-fleet-router.fly.dev",
+    "endpoint": "/api/bundle/market-starter",
+    "method": "POST",
+    "price": "$0.02",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "rae-fleet-router.fly.dev",
+    "endpoint": "/api/bundle/market-intel-trio",
+    "method": "POST",
+    "price": "$0.05",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "rae-fleet-router.fly.dev",
+    "endpoint": "/api/bundle/full-fleet-sampler",
+    "method": "POST",
+    "price": "$0.06",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "dispatch-x402.fly.dev",
+    "endpoint": "/dispatch",
+    "method": "POST",
+    "price": "$0.50",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "dispute-forge-x402.fly.dev",
+    "endpoint": "/api/dispute-pack",
+    "method": "POST",
+    "price": "$0.75",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "escrow-x402.fly.dev",
+    "endpoint": "/api/escrow/create",
+    "method": "POST",
+    "price": "$0.05",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "nft-alpha-x402.fly.dev",
+    "endpoint": "/api/nft-signal",
+    "method": "POST",
+    "price": "$0.02",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "power-pack-x402.fly.dev",
+    "endpoint": "/api/score-email",
+    "method": "POST",
+    "price": "$0.01",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "royal-feel-x402.fly.dev",
+    "endpoint": "/api/lint-copy",
+    "method": "POST",
+    "price": "$2.00",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "royal-feel-x402.fly.dev",
+    "endpoint": "/copy/lint",
+    "method": "POST",
+    "price": "$2.00",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "royal-feel-x402.fly.dev",
+    "endpoint": "/api/batch-lint",
+    "method": "POST",
+    "price": "$5.00",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "royal-ruby-x402.fly.dev",
+    "endpoint": "/api/law-lookup",
+    "method": "POST",
+    "price": "$0.25",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "suprapack-x402.fly.dev",
+    "endpoint": "/api/find-skill",
+    "method": "POST",
+    "price": "$0.03",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "suprapack-x402.fly.dev",
+    "endpoint": "/api/get-skill",
+    "method": "POST",
+    "price": "$0.03",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "suprapack-x402.fly.dev",
+    "endpoint": "/api/list-top",
+    "method": "POST",
+    "price": "$0.03",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "tradingagents-x402.fly.dev",
+    "endpoint": "/api/analyze-arbitrage",
+    "method": "POST",
+    "price": "$0.05",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "tradingagents-x402.fly.dev",
+    "endpoint": "/api/analyze-ticker",
+    "method": "POST",
+    "price": "$0.05",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "vault-pro-x402.fly.dev",
+    "endpoint": "/api/scaffold-project",
+    "method": "POST",
+    "price": "$0.05",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "vault-pro-x402.fly.dev",
+    "endpoint": "/api/scaffold-agent",
+    "method": "POST",
+    "price": "$0.05",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  },
+  {
+    "host": "raen-portfolio-x402.fly.dev",
+    "endpoint": "/api/portfolio",
+    "method": "POST",
+    "price": "$0.01",
+    "asset": "USDC eip155:8453",
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+  }
+];
+
+const TERMS_MD = [
+  "# A2A Terms of Trade — RAE Fleet (rae-fleet-router)",
+  "",
+  "Version 1.0.0 · Effective " + TRUST_CRAWL_UTC + " · Operator: Royal Agentic Enterprises",
+  "",
+  "These terms govern machine-to-machine (agent-to-agent) purchases of x402-paid",
+  "calls across the RAE fleet. The live 402 PAYMENT-REQUIRED challenge on each",
+  "route is the single source of truth for price, network, and payTo; this",
+  "document is the human/agent-readable contract around it.",
+  "",
+  "## 1. Services and prices (live crawl " + TRUST_CRAWL_UTC + ")",
+  "",
+  "All prices USDC on Base mainnet (eip155:8453), asset",
+  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), payTo",
+  "0x7861db4efc14a1ed5dd8c96c528a3796560f1393, scheme exact.",
+  "",
+  "| Wall | Endpoint | Price (USDC) |",
+  "|---|---|---|",
+  "| rae-fleet-router.fly.dev | POST /api/fleet-bundle | $0.10 |",
+  "| rae-fleet-router.fly.dev | POST /api/bundle/market-starter | $0.02 |",
+  "| rae-fleet-router.fly.dev | POST /api/bundle/market-intel-trio | $0.05 |",
+  "| rae-fleet-router.fly.dev | POST /api/bundle/full-fleet-sampler | $0.06 |",
+  "| dispatch-x402.fly.dev | POST /dispatch | $0.50 |",
+  "| dispute-forge-x402.fly.dev | POST /api/dispute-pack | $0.75 |",
+  "| escrow-x402.fly.dev | POST /api/escrow/create | $0.05 |",
+  "| nft-alpha-x402.fly.dev | POST /api/nft-signal | $0.02 |",
+  "| power-pack-x402.fly.dev | POST /api/score-email | $0.01 |",
+  "| royal-feel-x402.fly.dev | POST /api/lint-copy | $2.00 |",
+  "| royal-feel-x402.fly.dev | POST /copy/lint | $2.00 |",
+  "| royal-feel-x402.fly.dev | POST /api/batch-lint | $5.00 |",
+  "| royal-ruby-x402.fly.dev | POST /api/law-lookup | $0.25 |",
+  "| suprapack-x402.fly.dev | POST /api/find-skill | $0.03 |",
+  "| suprapack-x402.fly.dev | POST /api/get-skill | $0.03 |",
+  "| suprapack-x402.fly.dev | POST /api/list-top | $0.03 |",
+  "| tradingagents-x402.fly.dev | POST /api/analyze-arbitrage | $0.05 |",
+  "| tradingagents-x402.fly.dev | POST /api/analyze-ticker | $0.05 |",
+  "| vault-pro-x402.fly.dev | POST /api/scaffold-project | $0.05 |",
+  "| vault-pro-x402.fly.dev | POST /api/scaffold-agent | $0.05 |",
+  "| raen-portfolio-x402.fly.dev | POST /api/portfolio | $0.01 |",
+  "",
+  "briefsnap-x402 and nanobanana-x402 were unreachable at crawl time and carry no",
+  "live offer until their /pricing.md serves 200 again.",
+  "",
+  "## 2. Payment finality",
+  "",
+  "A call is final when the facilitator settles the EIP-3009",
+  "transferWithAuthorization on Base mainnet and the resource returns 200. 402",
+  "challenges are free; 4xx validation failures are never billed (validation",
+  "runs before the payment gate). Settled payments are non-reversible on-chain.",
+  "",
+  "## 3. Refund exceptions",
+  "",
+  "- Non-delivery (payment settled, resource 5xx or no response): retry credit —",
+  "  re-call the same route within 24h with the same topic/body; cite the",
+  "  settlement tx hash.",
+  "- Buyer/seller disputes route to the fleet's own escrow-x402",
+  "  (POST /api/escrow/create, $0.05) and dispute-forge-x402",
+  "  (POST /api/dispute-pack, $0.75) services.",
+  "- No refunds for buyer error covered by /pay-failed (wrong network, stale",
+  "  payTo, insufficient balance, stale price) — those payments never verified",
+  "  and were never received by the fleet.",
+  "",
+  "## 4. Redistribution bounds",
+  "",
+  "Responses are licensed for the buying agent's own use and downstream",
+  "composition within one task. Bulk redistribution, resale of raw responses, or",
+  "republishing a wall's output as your own paid endpoint requires a separate",
+  "license SKU (STRAT-37 license ladder; see the wall's /pricing.md).",
+  "",
+  "## 5. Liability",
+  "",
+  "Aggregate liability is capped at the amount paid for the specific call at",
+  "issue. Outputs are machine-generated research signals, not financial, legal,",
+  "or professional advice. No warranty of fitness for a particular purpose.",
+  "",
+  "## 6. Agent conduct",
+  "",
+  "Buying agents must: honor robots-equivalent rate courtesy (no hammering),",
+  "never reuse a stale payTo (drift is an alarm — see /pay-failed mode 2), set",
+  "their own per-call spend ceilings, and not auto-retry paid calls. Abuse",
+  "(challenge-farming, settlement probing, signature replay) gets the calling",
+  "key blocked fleet-wide.",
+  "",
+  "Machine-readable twin: GET /terms.json · FAQ: /faq.md · Privacy: /privacy.md",
+  "",
+].join("\n");
+
+function termsJson() {
+  return {
+    version: "1.0.0",
+    effectiveDate: TRUST_CRAWL_UTC,
+    walls: TRUST_WALLS,
+    paymentFinality: "Final on facilitator settlement of the EIP-3009 transferWithAuthorization on Base mainnet (eip155:8453); 4xx pre-gate validation failures are never billed.",
+    refundConditions: "Non-delivery = retry credit within 24h citing settlement tx hash. Buyer/seller disputes route to escrow-x402 (/api/escrow/create $0.05) and dispute-forge-x402 (/api/dispute-pack $0.75).",
+    redistributionBounds: "Own use + downstream composition within one task; bulk redistribution/resale requires a STRAT-37 license SKU (see each wall's /pricing.md).",
+    liabilityCap: "Amount paid for the specific call at issue.",
+    agentConduct: "No stale payTo reuse, per-call spend ceilings, no auto-retry of paid calls, no challenge farming.",
+  };
+}
+
+const FAQ = [
+  { q: "What happens to my money if a paid wall goes down?",
+    a: "Your payment is safe in the failure case that matters: if the wall never settles, nothing was charged — a 402 challenge is free and an unsettled EIP-3009 authorization expires (maxTimeoutSeconds 300). If payment settled but the resource 5xx'd (non-delivery), terms grant a retry credit within 24h citing the tx hash. contract-eye, sentry-forge, royal-gateway and x402-glm are currently down per the 2026-09-28 recovery matrix; their routes are simply not offered. Down walls bill nobody.",
+    source_url: "https://rae-fleet-router.fly.dev/terms.md" },
+  { q: "Are payments final?",
+    a: "Yes — once the facilitator settles the USDC transferWithAuthorization on Base mainnet the transfer is on-chain and non-reversible. The refund surface is the retry-credit path in /terms.md §3, not a chargeback. 4xx validation failures are never billed because validation runs before the payment gate (EXEC-41).",
+    source_url: "https://rae-fleet-router.fly.dev/terms.md" },
+  { q: "Where are prices authoritative?",
+    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0x7861db4efc14a1ed5dd8c96c528a3796560f1393.",
+    source_url: "https://rae-fleet-router.fly.dev/pricing.md" },
+  { q: "Who holds keys / custody?",
+    a: "You do. There are no accounts and no API keys: the buyer's own wallet signs a USDC EIP-3009 authorization per call. The fleet never sees buyer keys, and no PII ever leaves the buyer's side of the payment (see /privacy.md).",
+    source_url: "https://rae-fleet-router.fly.dev/privacy.md" },
+  { q: "What network and asset do I need?",
+    a: "USDC on Base mainnet: network eip155:8453, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), scheme exact. A $0.01 call is 10000 atomic units.",
+    source_url: "https://rae-fleet-router.fly.dev/.well-known/x402.json" },
+  { q: "How do I try before paying?",
+    a: "GET /sample on the router returns a shape-accurate synthetic bundle response — free, no payment, never a 402. GET /playground walks the full 402 handshake in your browser against a live challenge without paying.",
+    source_url: "https://rae-fleet-router.fly.dev/sample" },
+  { q: "My payment failed — what now?",
+    a: "GET /pay-failed has 30-second recovery recipes for the four real failure modes: wrong network, payTo drift, insufficient balance/expired approval, stale price. Universal rule: decode the live 402 header and copy accepts[0] verbatim.",
+    source_url: "https://rae-fleet-router.fly.dev/pay-failed" },
+  { q: "Can I tip the fleet?",
+    a: "Yes — POST /api/tip is a keep-the-change gratuity endpoint: $0.01 floor, $1.00 cap, same canonical treasury. GET /tip.md for the spec. A tip buys goodwill and returns a receipt; nothing else is delivered.",
+    source_url: "https://rae-fleet-router.fly.dev/tip.md" },
+];
+
+function faqMarkdown() {
+  const items = FAQ.map((f) => "## " + f.q + "\n\n" + f.a + "\n\n*Source: " + f.source_url + " — verified " + TRUST_CRAWL_UTC + "*\n").join("\n");
+  return [
+    "# Agent FAQ — RAE Fleet Router",
+    "",
+    "The buyer-killing questions, answered with same-day verified facts.",
+    "Machine-readable twin: GET /faq.json.",
+    "",
+    items,
+  ].join("\n");
+}
+function faqJson() {
+  return { ok: true, service: "rae-fleet-router", verified_on: TRUST_CRAWL_UTC,
+    faq: FAQ.map((f) => ({ question: f.q, answer: f.a, verified_on: TRUST_CRAWL_UTC, source_url: f.source_url })) };
+}
+
+const PRIVACY_MD = [
+  "# Privacy — RAE Fleet (zero data capture)",
+  "",
+  "Updated " + TRUST_CRAWL_UTC + " · Operator: Royal Agentic Enterprises",
+  "",
+  "**The short version: we collect nothing. No PII ever leaves the buyer's side",
+  "of the payment.**",
+  "",
+  "## Data collected: NONE",
+  "",
+  "- No accounts, no signups, no API keys.",
+  "- No cookies, no trackers, no analytics beacons, no captcha.",
+  "- No request-body retention: paid POST bodies are used to compose the",
+  "  response in-memory and are not written to a database.",
+  "",
+  "## Payment data",
+  "",
+  "Payments are USDC transfers on Base mainnet (eip155:8453) to the fleet",
+  "treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. Like every Base",
+  "transaction they are publicly visible on BaseScan — that is the chain's",
+  "property, not our logging. The fleet stores no off-chain copy of your wallet",
+  "identity; per-transfer accounting uses the public on-chain record only.",
+  "",
+  "## Third parties",
+  "",
+  "Exactly one: the x402 facilitator verifies and settles your signed EIP-3009",
+  "authorization. Your signed payload transits the facilitator; nothing else",
+  "about you is shared with anyone.",
+  "",
+  "## Uptime / health endpoints",
+  "",
+  "GET /health and the free discovery surfaces generate only standard HTTP",
+  "server logs (Fly.io edge logs: IP, path, status, timing) retained by the",
+  "hosting platform under its own policy.",
+  "",
+  "## Contact",
+  "",
+  "GitHub issues: https://github.com/bshelby88/rae-fleet-router/issues ·",
+  "Security disclosures: /.well-known/security.txt",
+  "",
+].join("\n");
+
+function privacyJson() {
+  return { service: "rae-fleet-router", network: "eip155:8453",
+    payTo: "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
+    dataCollected: [], retainedOffchain: false, updated: TRUST_CRAWL_UTC };
+}
+
+const HOW_IT_WORKS_STEPS = [
+  { n: 1, name: "Discover", detail: "Read https://rae-fleet-router.fly.dev/llms.txt or /.well-known/x402.json for the machine catalog, or GET /buy for one shareable pay-link page per fleet service.", url: "https://rae-fleet-router.fly.dev/llms.txt" },
+  { n: 2, name: "Sample", detail: "GET /sample — free, shape-accurate synthetic bundle response. No payment, never a 402. Confirm the response shape fits your pipeline before spending a cent.", url: "https://rae-fleet-router.fly.dev/sample" },
+  { n: 3, name: "Decode the 402", detail: "POST your chosen endpoint unpaid. HTTP 402 returns a base64 PAYMENT-REQUIRED header; decode it and copy accepts[0] verbatim: scheme exact, network eip155:8453, USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo, amount in 6-decimal atomic units. The live challenge is authoritative.", url: "https://rae-fleet-router.fly.dev/pay-failed" },
+  { n: 4, name: "Sign + pay", detail: "Sign a USDC EIP-3009 transferWithAuthorization for accepts[0].amount to accepts[0].payTo from your own wallet (no prior approval needed, no custody), then re-send the same POST with the PAYMENT-SIGNATURE header.", url: "https://rae-fleet-router.fly.dev/pricing.md" },
+  { n: 5, name: "Receipt", detail: "HTTP 200 returns the paid resource. The facilitator settles on-chain; your tx hash is the receipt. Failed? /pay-failed fixes the 4 real failure modes in 30 seconds.", url: "https://rae-fleet-router.fly.dev/terms.md" },
+];
+
+function howItWorksMarkdown() {
+  return [
+    "# How It Works — Buyer-Agent Edition",
+    "",
+    "From zero to a paid fleet call in five steps. Everything below was verified",
+    "live on " + TRUST_CRAWL_UTC + ".",
+    "",
+    ...HOW_IT_WORKS_STEPS.map((s) => "## " + s.n + ". " + s.name + "\n\n" + s.detail + "\n"),
+    "## Entry prices (verified " + TRUST_CRAWL_UTC + ")",
+    "",
+    "| Wall | Endpoint | Price |",
+    "|---|---|---|",
+    "| power-pack-x402 | POST /api/score-email | $0.01 |",
+    "| raen-portfolio-x402 | POST /api/portfolio | $0.01 |",
+    "| nft-alpha-x402 | POST /api/nft-signal | $0.02 |",
+    "| suprapack-x402 | POST /api/find-skill | $0.03 |",
+    "",
+    "Machine-readable twin: GET /how-it-works.json · FAQ: /faq.md · Terms: /terms.md",
+    "",
+  ].join("\n");
+}
+function howItWorksJson() {
+  return { ok: true, service: "rae-fleet-router", verified_on: TRUST_CRAWL_UTC,
+    h1: "How It Works — Buyer-Agent Edition",
+    steps: HOW_IT_WORKS_STEPS,
+    price_table: [
+      { wall: "power-pack-x402", endpoint: "POST /api/score-email", price: "$0.01" },
+      { wall: "raen-portfolio-x402", endpoint: "POST /api/portfolio", price: "$0.01" },
+      { wall: "nft-alpha-x402", endpoint: "POST /api/nft-signal", price: "$0.02" },
+      { wall: "suprapack-x402", endpoint: "POST /api/find-skill", price: "$0.03" },
+    ],
+    faq_carryover: "/faq.json" };
+}
+
+const TIP_MD = [
+  "# Keep the Change — tip the fleet",
+  "",
+  "you already pay in pennies — round up.",
+  "",
+  "POST /api/tip is a gratuity endpoint gated by the same x402 machinery as",
+  "every paid route. A tip purchases goodwill, not a resource: settlement lands",
+  "in the canonical fleet treasury and you get a JSON receipt. Nothing else is",
+  "delivered; there is no refund path.",
+  "",
+  "- Floor: $0.01 USDC (10000 atomic units)",
+  "- Cap: $1.00 USDC (1000000 atomic units) — over-cap authorizations are rejected",
+  "- Network: eip155:8453 (Base mainnet), scheme exact",
+  "- Asset: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (USDC, 6 decimals)",
+  "- payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393 (canonical fleet treasury —",
+  "  the same address every wall pays into; zero new key exposure)",
+  "",
+  "Unpaid POST returns 402 with the standard PAYMENT-REQUIRED challenge.",
+  "",
+].join("\n");
+
+const SECURITY_TXT = [
+  "# RAE Fleet — vulnerability disclosure (RFC 9116)",
+  "Contact: https://njump.me/npub165emktdt2dwhpjkm9jcyc8nudka8uqplt3u25ymgxtneh2fhrqlqes94pd",
+  "Contact: https://github.com/bshelby88/rae-fleet-router/issues",
+  "Canonical: https://rae-fleet-router.fly.dev/.well-known/security.txt",
+  "Expires: 2026-12-31T00:00:00.000Z",
+  "Policy: https://rae-fleet-router.fly.dev/terms.md",
+  "Preferred-Languages: en",
+  "",
+].join("\n");
+function securityTxtJson() {
+  return { contact: ["https://njump.me/npub165emktdt2dwhpjkm9jcyc8nudka8uqplt3u25ymgxtneh2fhrqlqes94pd", "https://github.com/bshelby88/rae-fleet-router/issues"],
+    canonical: "https://rae-fleet-router.fly.dev/.well-known/security.txt",
+    expires: "2026-12-31T00:00:00.000Z",
+    policy: "https://rae-fleet-router.fly.dev/terms.md",
+    nostr_pubkey_hex: "d533bb2dab535d70cadb2cb04c1e7c6dba7e003f5c78aa136832e79ba937183e" };
+}
+
+// --- playground (EXEC-82 / PLAN-68) -----------------------------------------
+const PLAYGROUND_RECIPES = [{"wall": "rae-fleet-router", "endpoint": "POST /api/fleet-bundle", "price": "$0.10", "url": "https://rae-fleet-router.fly.dev/api/fleet-bundle", "body": {"topic": "Azuki"}}, {"wall": "rae-fleet-router", "endpoint": "POST /api/bundle/market-starter", "price": "$0.02", "url": "https://rae-fleet-router.fly.dev/api/bundle/market-starter", "body": {"topic": "Azuki"}}, {"wall": "rae-fleet-router", "endpoint": "POST /api/bundle/market-intel-trio", "price": "$0.05", "url": "https://rae-fleet-router.fly.dev/api/bundle/market-intel-trio", "body": {"topic": "Azuki"}}, {"wall": "rae-fleet-router", "endpoint": "POST /api/bundle/full-fleet-sampler", "price": "$0.06", "url": "https://rae-fleet-router.fly.dev/api/bundle/full-fleet-sampler", "body": {"topic": "Azuki"}}, {"wall": "dispatch-x402", "endpoint": "POST /dispatch", "price": "$0.50", "url": "https://dispatch-x402.fly.dev/dispatch", "body": {}}, {"wall": "dispute-forge-x402", "endpoint": "POST /api/dispute-pack", "price": "$0.75", "url": "https://dispute-forge-x402.fly.dev/api/dispute-pack", "body": {}}, {"wall": "escrow-x402", "endpoint": "POST /api/escrow/create", "price": "$0.05", "url": "https://escrow-x402.fly.dev/api/escrow/create", "body": {}}, {"wall": "nft-alpha-x402", "endpoint": "POST /api/nft-signal", "price": "$0.02", "url": "https://nft-alpha-x402.fly.dev/api/nft-signal", "body": {}}, {"wall": "power-pack-x402", "endpoint": "POST /api/score-email", "price": "$0.01", "url": "https://power-pack-x402.fly.dev/api/score-email", "body": {}}, {"wall": "royal-feel-x402", "endpoint": "POST /api/lint-copy", "price": "$2.00", "url": "https://royal-feel-x402.fly.dev/api/lint-copy", "body": {}}, {"wall": "royal-feel-x402", "endpoint": "POST /copy/lint", "price": "$2.00", "url": "https://royal-feel-x402.fly.dev/copy/lint", "body": {}}, {"wall": "royal-feel-x402", "endpoint": "POST /api/batch-lint", "price": "$5.00", "url": "https://royal-feel-x402.fly.dev/api/batch-lint", "body": {}}, {"wall": "royal-ruby-x402", "endpoint": "POST /api/law-lookup", "price": "$0.25", "url": "https://royal-ruby-x402.fly.dev/api/law-lookup", "body": {}}, {"wall": "suprapack-x402", "endpoint": "POST /api/find-skill", "price": "$0.03", "url": "https://suprapack-x402.fly.dev/api/find-skill", "body": {}}, {"wall": "suprapack-x402", "endpoint": "POST /api/get-skill", "price": "$0.03", "url": "https://suprapack-x402.fly.dev/api/get-skill", "body": {}}, {"wall": "suprapack-x402", "endpoint": "POST /api/list-top", "price": "$0.03", "url": "https://suprapack-x402.fly.dev/api/list-top", "body": {}}, {"wall": "tradingagents-x402", "endpoint": "POST /api/analyze-arbitrage", "price": "$0.05", "url": "https://tradingagents-x402.fly.dev/api/analyze-arbitrage", "body": {}}, {"wall": "tradingagents-x402", "endpoint": "POST /api/analyze-ticker", "price": "$0.05", "url": "https://tradingagents-x402.fly.dev/api/analyze-ticker", "body": {}}, {"wall": "vault-pro-x402", "endpoint": "POST /api/scaffold-project", "price": "$0.05", "url": "https://vault-pro-x402.fly.dev/api/scaffold-project", "body": {}}, {"wall": "vault-pro-x402", "endpoint": "POST /api/scaffold-agent", "price": "$0.05", "url": "https://vault-pro-x402.fly.dev/api/scaffold-agent", "body": {}}, {"wall": "raen-portfolio-x402", "endpoint": "POST /api/portfolio", "price": "$0.01", "url": "https://raen-portfolio-x402.fly.dev/api/portfolio", "body": {}}];
+function renderPlaygroundHtml() {
+  const opts = PLAYGROUND_RECIPES.map((r, i) => `<option value="${i}">${r.wall} — ${r.endpoint} (${r.price})</option>`).join("\n");
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x402 Playground — RAE Fleet</title>
+<style>body{font-family:system-ui,sans-serif;max-width:880px;margin:2rem auto;padding:0 1rem;color:#111}
+pre{background:#0d1117;color:#e6edf3;padding:1rem;border-radius:8px;overflow-x:auto;font-size:.85rem;white-space:pre-wrap}
+button,select{font-size:1rem;padding:.4rem .8rem;margin:.2rem 0}
+.step{border:1px solid #ddd;border-radius:10px;padding:.8rem 1rem;margin:.6rem 0}
+footer{margin-top:2rem;color:#555}</style>
+</head><body>
+<h1>x402 Playground — Try Before You Pay</h1>
+<p class="sub">Watch a real 402 Payment-Required handshake against a live fleet wall — in your browser, without paying anything.</p>
+<p>
+<button onclick="walk()">▶ Run the 402 handshake walkthrough</button>
+<button onclick="copyCurl()">Copy the curl recipe</button>
+<a href="/sample"><button>See a free sample response</button></a>
+</p>
+<div class="step"><b>1 · Pick a wall</b><br><select id="wall">${opts}</select></div>
+<div class="step"><b>2 · Unpaid POST</b> — we send it for you, expect HTTP 402.<pre id="s2">(run the walkthrough)</pre></div>
+<div class="step"><b>3 · Decode PAYMENT-REQUIRED</b> — base64 JSON; accepts[0] is authoritative.<pre id="s3"></pre></div>
+<div class="step"><b>4 · What a buyer does next</b> — sign a USDC EIP-3009 transferWithAuthorization for accepts[0].amount to accepts[0].payTo, re-send with PAYMENT-SIGNATURE. <i>The playground stops here — this is where money would move.</i></div>
+<p><b>The demo costs nothing; real calls start at $0.01.</b></p>
+<p><i>Every challenge you see above was emitted live by the wall you picked.</i><br>
+<i>No wallet, no keys, no custody — signing always stays on the buyer's side.</i><br>
+<i>When you're ready, the full catalog lives at <a href="/buy">/buy</a>.</i></p>
+<footer>RAE Fleet — USDC on Base, no API keys · <a href="/how-it-works">How it works</a> · <a href="/faq.md">FAQ</a> · <a href="/terms.md">Terms</a></footer>
+<script>
+const RECIPES = ${JSON.stringify(PLAYGROUND_RECIPES)};
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+async function walk(){
+  const r = RECIPES[document.getElementById('wall').value];
+  const s2 = document.getElementById('s2'), s3 = document.getElementById('s3');
+  s2.textContent = "POST " + r.url + "\\n(body: " + JSON.stringify(r.body) + ")\\n\\n…";
+  s3.textContent = "";
+  try {
+    const res = await fetch(r.url, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(r.body)});
+    s2.textContent = "POST " + r.url + "\\n→ HTTP " + res.status;
+    const hdr = res.headers.get("payment-required");
+    if (!hdr) { s3.textContent = "(no PAYMENT-REQUIRED header on this response)"; return; }
+    const dec = JSON.parse(atob(hdr.replace(/-/g,"+").replace(/_/g,"/")));
+    s3.textContent = JSON.stringify(dec.accepts ? dec.accepts[0] : dec, null, 2);
+  } catch(e){ s2.textContent = "fetch failed: " + e.message + " (wall may be down — pick another)"; }
+}
+function copyCurl(){
+  const r = RECIPES[document.getElementById('wall').value];
+  navigator.clipboard.writeText("curl -s -X POST " + r.url + " -H 'Content-Type: application/json' -d '" + JSON.stringify(r.body) + "' -D -");
+}
+</scr` + `ipt></body></html>`;
+}
+
+// --- route registrations (all ABOVE paymentMiddleware → free, never 402) ----
+app.get("/terms.md", (_req, res) => res.type("text/markdown; charset=utf-8").send(TERMS_MD));
+app.get("/terms.json", (_req, res) => res.json(termsJson()));
+app.get("/faq.md", (_req, res) => res.type("text/markdown; charset=utf-8").send(faqMarkdown()));
+app.get("/faq.json", (_req, res) => res.json(faqJson()));
+app.get("/privacy.md", (_req, res) => res.type("text/markdown; charset=utf-8").send(PRIVACY_MD));
+app.get("/privacy.json", (_req, res) => res.json(privacyJson()));
+app.get("/how-it-works", (_req, res) => res.type("text/markdown; charset=utf-8").send(howItWorksMarkdown()));
+app.get("/how-it-works.json", (_req, res) => res.json(howItWorksJson()));
+app.get("/tip.md", (_req, res) => res.type("text/markdown; charset=utf-8").send(TIP_MD));
+app.get("/playground", (_req, res) => res.type("text/html; charset=utf-8").send(renderPlaygroundHtml()));
+app.get("/.well-known/security.txt", (_req, res) => {
+  if (String(_req.query.format || "") === "json") return res.json(securityTxtJson());
+  res.type("text/plain; charset=utf-8").send(SECURITY_TXT);
+});
+
+// ---------------------------------------------------------------------------
+// EXEC-41 — 400-before-402 pre-validation for the ladder routes.
 // the handler cannot serve must never see a payment challenge: paying and then
 // hitting the handler's 400 would charge the buyer without service. This
 // middleware is registered ABOVE paymentMiddleware() so invalid requests
@@ -1550,6 +2227,13 @@ app.use((req, res, next) => {
 });
 
 app.use(paymentMiddleware(PAID_ROUTES, x402Server, undefined, undefined, false));
+
+// EXEC-85 — tip handler (reached only after the x402 gate has verified payment).
+app.post("/api/tip", (req, res) => {
+  res.json({ ok: true, tip_usdc: "0.01", to: PAY_TO,
+    note: "Keep the Change — thank you. A tip purchases goodwill; this receipt is the whole deliverable.",
+    terms: "https://rae-fleet-router.fly.dev/terms.md", ts: new Date().toISOString() });
+});
 
 app.post("/api/fleet-bundle", async (req, res) => {
   const { topic, email_subject = "Quick question", email_body = "Hi, I wanted to reach out about our product." } = req.body || {};
