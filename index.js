@@ -163,7 +163,26 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 
+// Coinbase OAuth2 — verify Bearer tokens from raen-auth.
+// Enable by setting COINBASE_OAUTH_ENABLED=true in env.
+// Protected routes check req.coinbaseUser or use requireCoinbaseAuth().
+const { coinbaseOAuthMiddleware, requireCoinbaseAuth } = require("./lib/coinbase-oauth-middleware");
+app.use(coinbaseOAuthMiddleware);
+
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "rae-fleet-router", network: NETWORK, payTo: PAY_TO }));
+
+// Coinbase OAuth session status — returns current user info if authenticated.
+// Used by raen-auth callback and by walls to verify the active session.
+app.get("/auth/coinbase/status", (req, res) => {
+  if (!req.coinbaseUser) {
+    return res.json({ authenticated: false });
+  }
+  return res.json({
+    authenticated: true,
+    user: req.coinbaseUser,
+    provider: "coinbase",
+  });
+});
 
 const BUNDLE_INPUT_SCHEMA = {
   type: "object",
@@ -327,7 +346,7 @@ function pricingMarkdown() {
 // serves the whole set as JSON. Failed payments are lost revenue the buyer
 // agent can repair with ONE retry — this page is the repair manual.
 // ---------------------------------------------------------------------------
-const CANONICAL_PAY_TO = "0x7861db4efc14a1ed5dd8c96c528a3796560f1393";
+const CANONICAL_PAY_TO = "0xfBC0eb7811d477e55261d956df39f0046e192240";
 const MAINNET_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const FACILITATOR_URL = "https://api.cdp.coinbase.com/platform/v2/x402";
 const EXAMPLE_RESOURCE = "https://rae-fleet-router.fly.dev/api/bundle/market-starter";
@@ -752,7 +771,7 @@ function agentCardJson(req) {
       pushNotifications: false,
       stateTransitionHistory: false,
       extensions: [
-        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. The live 402 challenge is authoritative.", required: false },
+        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0xfBC0eb7811d477e55261d956df39f0046e192240. The live 402 challenge is authoritative.", required: false },
       ],
     },
     defaultInputModes: ["application/json", "text/plain"],
@@ -931,7 +950,7 @@ app.get("/benchmarks", (req, res) => {
       "## 3. Agent block (agent-card / llms.txt metadata)",
       '```',
       'chain: eip155:8453',
-      'payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393',
+      'payTo: 0xfBC0eb7811d477e55261d956df39f0046e192240',
       `router: ${ROUTER}/.well-known/x402.json`,
       `discovery: ${ROUTER}/llms.txt`,
       'protocol: x402 v2',
@@ -1280,7 +1299,7 @@ surfaces (x402 manifest + 402 challenge), cached 300&nbsp;s. Machine variant:
 <code>GET /buy?format=json</code>.</p>
 ${cards}
 <footer>Every wall on Base, USDC, no API keys — index at <code>/buy</code>.<br>
-<a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
+<a href="/penny-stack">🧩 Penny Stack — cheapest 4 walls</a> · <a href="/catalog.json">Catalog</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
 </body></html>`;
 }
 
@@ -1672,7 +1691,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.10",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1680,7 +1699,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.02",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1688,7 +1707,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1696,7 +1715,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.06",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "dispatch-x402.fly.dev",
@@ -1704,7 +1723,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.50",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "dispute-forge-x402.fly.dev",
@@ -1712,7 +1731,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.75",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "escrow-x402.fly.dev",
@@ -1720,7 +1739,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "nft-alpha-x402.fly.dev",
@@ -1728,7 +1747,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.02",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "power-pack-x402.fly.dev",
@@ -1736,7 +1755,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.01",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1744,7 +1763,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$2.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1752,7 +1771,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$2.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1760,7 +1779,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$5.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-ruby-x402.fly.dev",
@@ -1768,7 +1787,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.25",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1776,7 +1795,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1784,7 +1803,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1792,7 +1811,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "tradingagents-x402.fly.dev",
@@ -1800,7 +1819,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "tradingagents-x402.fly.dev",
@@ -1808,7 +1827,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "vault-pro-x402.fly.dev",
@@ -1816,7 +1835,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "vault-pro-x402.fly.dev",
@@ -1824,7 +1843,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "raen-portfolio-x402.fly.dev",
@@ -1832,7 +1851,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.01",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   }
 ];
 
@@ -1850,7 +1869,7 @@ const TERMS_MD = [
   "",
   "All prices USDC on Base mainnet (eip155:8453), asset",
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), payTo",
-  "0x7861db4efc14a1ed5dd8c96c528a3796560f1393, scheme exact.",
+  "0xfBC0eb7811d477e55261d956df39f0046e192240, scheme exact.",
   "",
   "| Wall | Endpoint | Price (USDC) |",
   "|---|---|---|",
@@ -1944,7 +1963,7 @@ const FAQ = [
     a: "Yes — once the facilitator settles the USDC transferWithAuthorization on Base mainnet the transfer is on-chain and non-reversible. The refund surface is the retry-credit path in /terms.md §3, not a chargeback. 4xx validation failures are never billed because validation runs before the payment gate (EXEC-41).",
     source_url: "https://rae-fleet-router.fly.dev/terms.md" },
   { q: "Where are prices authoritative?",
-    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0x7861db4efc14a1ed5dd8c96c528a3796560f1393.",
+    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0xfBC0eb7811d477e55261d956df39f0046e192240.",
     source_url: "https://rae-fleet-router.fly.dev/pricing.md" },
   { q: "Who holds keys / custody?",
     a: "You do. There are no accounts and no API keys: the buyer's own wallet signs a USDC EIP-3009 authorization per call. The fleet never sees buyer keys, and no PII ever leaves the buyer's side of the payment (see /privacy.md).",
@@ -1997,7 +2016,7 @@ const PRIVACY_MD = [
   "## Payment data",
   "",
   "Payments are USDC transfers on Base mainnet (eip155:8453) to the fleet",
-  "treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. Like every Base",
+  "treasury 0xfBC0eb7811d477e55261d956df39f0046e192240. Like every Base",
   "transaction they are publicly visible on BaseScan — that is the chain's",
   "property, not our logging. The fleet stores no off-chain copy of your wallet",
   "identity; per-transfer accounting uses the public on-chain record only.",
@@ -2023,7 +2042,7 @@ const PRIVACY_MD = [
 
 function privacyJson() {
   return { service: "rae-fleet-router", network: "eip155:8453",
-    payTo: "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
+    payTo: "0xfBC0eb7811d477e55261d956df39f0046e192240",
     dataCollected: [], retainedOffchain: false, updated: TRUST_CRAWL_UTC };
 }
 
@@ -2083,7 +2102,7 @@ const TIP_MD = [
   "- Cap: $1.00 USDC (1000000 atomic units) — over-cap authorizations are rejected",
   "- Network: eip155:8453 (Base mainnet), scheme exact",
   "- Asset: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (USDC, 6 decimals)",
-  "- payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393 (canonical fleet treasury —",
+  "- payTo: 0xfBC0eb7811d477e55261d956df39f0046e192240 (canonical fleet treasury —",
   "  the same address every wall pays into; zero new key exposure)",
   "",
   "Unpaid POST returns 402 with the standard PAYMENT-REQUIRED challenge.",
@@ -2173,6 +2192,90 @@ app.get("/how-it-works", (_req, res) => res.type("text/markdown; charset=utf-8")
 app.get("/how-it-works.json", (_req, res) => res.json(howItWorksJson()));
 app.get("/tip.md", (_req, res) => res.type("text/markdown; charset=utf-8").send(TIP_MD));
 app.get("/playground", (_req, res) => res.type("text/html; charset=utf-8").send(renderPlaygroundHtml()));
+
+// EXEC-105 — GET /penny-stack: landing page for the 4 cheapest x402 walls.
+// Each card shows the wall's live price crawled from /pricing.md at request time.
+// Try-All-Four $0.05 promo links the bundle_market-starter if found in /buy.
+// Free route (registered ABOVE paymentMiddleware; never a 402).
+const PENNY_SLUGS = ["opensea-data", "raen-portfolio", "power-pack", "nft-alpha"];
+const PENNY_BUNDLE_ID = "market-starter";
+
+function renderPennyStackHtml(walls, bundleSlug) {
+  const allItems = walls.flatMap((w) => w.items);
+  const pennyItems = allItems.filter((i) => PENNY_SLUGS.includes(i.slug));
+  const cards = pennyItems.map((i) => {
+    const price = i.amount_micro ? usdFromMicro(i.amount_micro) : "—";
+    const priceLabel = "$" + price + " USDC per request";
+    const ep = (i.method || "POST") + " " + (i.endpoint_url || "");
+    const curlEx = ep ? `curl -s ${ep.replace(/^POST /, "-X POST ").replace(/^GET /, "")}` : "";
+    return `<div class="p-card">
+  <h3>${escHtml(i.slug || "")}</h3>
+  <p class="p-desc">${escHtml(String(i.description || "").slice(0, 200))}</p>
+  <p class="p-price">${escHtml(priceLabel)}</p>
+  <p class="p-ep"><code>${escHtml(curlEx || ep)}</code></p>
+  <p><a href="/buy/${escHtml(i.slug)}" class="p-btn">Buy ${escHtml(price)} USDC</a></p>
+</div>`;
+  }).join("\n");
+  const tryAllBlock = bundleSlug
+    ? `<div class="p-promo"><h2>Try All Four — Five Cents Total</h2>
+<p>One wallet, four API calls, five cents of USDC. Call OpenSea data, get a fleet health report, score an email draft, and check an NFT collection's pulse. This is the cheapest autonomous-research stack on mainnet.</p>
+<p><a href="/buy/${escHtml(bundleSlug)}" class="p-btn">Buy Bundle — $0.05 USDC</a></p></div>`
+    : "";
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your First Penny API Call — RAE Fleet</title>
+<meta name="description" content="Try the cheapest paid APIs on Base mainnet — every call costs one USDC cent (or two). No account, no subscription, no credit card.">
+<style>body{font-family:system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#111;line-height:1.5}
+.p-card{border:1px solid #ddd;border-radius:10px;padding:.9rem 1.1rem;margin:.7rem 0}
+.p-card h3{margin:0 0 .3rem;font-size:1.15rem}
+.p-desc{color:#444;margin:.2rem 0}
+.p-price{font-weight:600;margin:.2rem 0;color:#065}
+.p-ep{font-size:.82rem;color:#666;margin:.3rem 0;word-break:break-all}
+.p-btn{display:inline-block;padding:.35rem .9rem;background:#0d7;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem}
+.p-btn:hover{background:#0b5}
+.p-promo{background:#e8ffe8;border:2px solid #0d7;border-radius:12px;padding:1rem 1.3rem;margin:1rem 0}
+.p-promo h2{margin:0 0 .5rem}
+footer{margin-top:2rem;color:#555;font-size:.85rem}</style>
+</head><body>
+<h1>Your First Penny API Call</h1>
+<p>Try the cheapest paid APIs on Base mainnet — every call costs one USDC cent (or two). No account, no subscription, no credit card. Just a wallet and a curl command.</p>
+${cards}
+${tryAllBlock}
+<footer>Prices crawled live from each wall's /pricing.md. The live 402 challenge is authoritative.<br>
+<a href="/buy">Browse all services</a> · <a href="/penny-stack.json">JSON</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.3rem"></a></footer>
+</body></html>`;
+}
+
+app.get("/penny-stack", async (_req, res) => {
+  const walls = await buildBuyIndex();
+  const allItems = walls.flatMap((w) => w.items);
+  const hasBundle = allItems.some((i) => i.slug === "rae-fleet-router__bundle_" + PENNY_BUNDLE_ID);
+  res.type("text/html; charset=utf-8").send(renderPennyStackHtml(walls, hasBundle ? PENNY_BUNDLE_ID : null));
+});
+
+app.get("/penny-stack.json", async (_req, res) => {
+  const walls = await buildBuyIndex();
+  const allItems = walls.flatMap((w) => w.items);
+  const pennyItems = allItems.filter((i) => PENNY_SLUGS.includes(i.slug));
+  const hasBundle = allItems.some((i) => i.slug === "rae-fleet-router__bundle_" + PENNY_BUNDLE_ID);
+  res.set("Cache-Control", "public, max-age=120");
+  res.json({
+    ok: true, free: true, service: "rae-fleet-router", page: "/penny-stack",
+    generated_utc: new Date().toISOString(),
+    headline: "Your First Penny API Call",
+    subhead: "Try the cheapest paid APIs on Base mainnet — every call costs one USDC cent (or two). No account, no subscription, no credit card. Just a wallet and a curl command.",
+    canonical: { network: "eip155:8453", usdc: MAINNET_USDC, payTo: CANONICAL_PAY_TO },
+    walls: pennyItems.map((i) => ({
+      slug: i.slug, host: i.host, endpoint: i.endpoint, method: i.method,
+      price_usdc: i.price_usdc, amount_micro: i.amount_micro,
+      network: i.network, payTo: i.payTo, asset: i.asset,
+      facilitator: i.facilitator, description: String(i.description || "").slice(0, 300),
+      endpoint_url: i.endpoint_url, status: i.status,
+    })),
+    bundle: hasBundle ? { slug: "rae-fleet-router__bundle_" + PENNY_BUNDLE_ID, price_usdc: 0.05, note: "Try all four for $0.05 via the market-starter bundle" } : null,
+  });
+});
 app.get("/.well-known/security.txt", (_req, res) => {
   if (String(_req.query.format || "") === "json") return res.json(securityTxtJson());
   res.type("text/plain; charset=utf-8").send(SECURITY_TXT);
