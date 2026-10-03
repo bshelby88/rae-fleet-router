@@ -327,7 +327,7 @@ function pricingMarkdown() {
 // serves the whole set as JSON. Failed payments are lost revenue the buyer
 // agent can repair with ONE retry — this page is the repair manual.
 // ---------------------------------------------------------------------------
-const CANONICAL_PAY_TO = "0x7861db4efc14a1ed5dd8c96c528a3796560f1393";
+const CANONICAL_PAY_TO = "0xfBC0eb7811d477e55261d956df39f0046e192240";
 const MAINNET_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const FACILITATOR_URL = "https://api.cdp.coinbase.com/platform/v2/x402";
 const EXAMPLE_RESOURCE = "https://rae-fleet-router.fly.dev/api/bundle/market-starter";
@@ -752,7 +752,7 @@ function agentCardJson(req) {
       pushNotifications: false,
       stateTransitionHistory: false,
       extensions: [
-        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. The live 402 challenge is authoritative.", required: false },
+        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0xfBC0eb7811d477e55261d956df39f0046e192240. The live 402 challenge is authoritative.", required: false },
       ],
     },
     defaultInputModes: ["application/json", "text/plain"],
@@ -931,7 +931,7 @@ app.get("/benchmarks", (req, res) => {
       "## 3. Agent block (agent-card / llms.txt metadata)",
       '```',
       'chain: eip155:8453',
-      'payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393',
+      'payTo: 0xfBC0eb7811d477e55261d956df39f0046e192240',
       `router: ${ROUTER}/.well-known/x402.json`,
       `discovery: ${ROUTER}/llms.txt`,
       'protocol: x402 v2',
@@ -1672,7 +1672,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.10",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1680,7 +1680,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.02",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1688,7 +1688,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1696,7 +1696,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.06",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "dispatch-x402.fly.dev",
@@ -1704,7 +1704,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.50",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "dispute-forge-x402.fly.dev",
@@ -1712,7 +1712,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.75",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "escrow-x402.fly.dev",
@@ -1720,7 +1720,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "nft-alpha-x402.fly.dev",
@@ -1728,7 +1728,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.02",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "power-pack-x402.fly.dev",
@@ -1736,7 +1736,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.01",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1744,7 +1744,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$2.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1752,7 +1752,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$2.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1760,7 +1760,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$5.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "royal-ruby-x402.fly.dev",
@@ -1768,7 +1768,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.25",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1776,7 +1776,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1784,7 +1784,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1792,7 +1792,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "tradingagents-x402.fly.dev",
@@ -1800,7 +1800,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "tradingagents-x402.fly.dev",
@@ -1808,7 +1808,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "vault-pro-x402.fly.dev",
@@ -1816,7 +1816,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "vault-pro-x402.fly.dev",
@@ -1824,7 +1824,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   },
   {
     "host": "raen-portfolio-x402.fly.dev",
@@ -1832,7 +1832,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.01",
     "asset": "USDC eip155:8453",
-    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
+    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
   }
 ];
 
@@ -1850,7 +1850,7 @@ const TERMS_MD = [
   "",
   "All prices USDC on Base mainnet (eip155:8453), asset",
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), payTo",
-  "0x7861db4efc14a1ed5dd8c96c528a3796560f1393, scheme exact.",
+  "0xfBC0eb7811d477e55261d956df39f0046e192240, scheme exact.",
   "",
   "| Wall | Endpoint | Price (USDC) |",
   "|---|---|---|",
@@ -1944,7 +1944,7 @@ const FAQ = [
     a: "Yes — once the facilitator settles the USDC transferWithAuthorization on Base mainnet the transfer is on-chain and non-reversible. The refund surface is the retry-credit path in /terms.md §3, not a chargeback. 4xx validation failures are never billed because validation runs before the payment gate (EXEC-41).",
     source_url: "https://rae-fleet-router.fly.dev/terms.md" },
   { q: "Where are prices authoritative?",
-    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0x7861db4efc14a1ed5dd8c96c528a3796560f1393.",
+    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0xfBC0eb7811d477e55261d956df39f0046e192240.",
     source_url: "https://rae-fleet-router.fly.dev/pricing.md" },
   { q: "Who holds keys / custody?",
     a: "You do. There are no accounts and no API keys: the buyer's own wallet signs a USDC EIP-3009 authorization per call. The fleet never sees buyer keys, and no PII ever leaves the buyer's side of the payment (see /privacy.md).",
@@ -1997,7 +1997,7 @@ const PRIVACY_MD = [
   "## Payment data",
   "",
   "Payments are USDC transfers on Base mainnet (eip155:8453) to the fleet",
-  "treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. Like every Base",
+  "treasury 0xfBC0eb7811d477e55261d956df39f0046e192240. Like every Base",
   "transaction they are publicly visible on BaseScan — that is the chain's",
   "property, not our logging. The fleet stores no off-chain copy of your wallet",
   "identity; per-transfer accounting uses the public on-chain record only.",
@@ -2023,7 +2023,7 @@ const PRIVACY_MD = [
 
 function privacyJson() {
   return { service: "rae-fleet-router", network: "eip155:8453",
-    payTo: "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
+    payTo: "0xfBC0eb7811d477e55261d956df39f0046e192240",
     dataCollected: [], retainedOffchain: false, updated: TRUST_CRAWL_UTC };
 }
 
@@ -2083,7 +2083,7 @@ const TIP_MD = [
   "- Cap: $1.00 USDC (1000000 atomic units) — over-cap authorizations are rejected",
   "- Network: eip155:8453 (Base mainnet), scheme exact",
   "- Asset: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (USDC, 6 decimals)",
-  "- payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393 (canonical fleet treasury —",
+  "- payTo: 0xfBC0eb7811d477e55261d956df39f0046e192240 (canonical fleet treasury —",
   "  the same address every wall pays into; zero new key exposure)",
   "",
   "Unpaid POST returns 402 with the standard PAYMENT-REQUIRED challenge.",
