@@ -9,6 +9,8 @@
 | `GET /health` | Liveness check |
 | `POST /route` | Route a request to the appropriate fleet service |
 | `GET /.well-known/x402.json` | x402 Bazaar discovery manifest |
+| `GET /catalog` | Tiered HTML catalog of all fleet x402 services — grouped by price (Penny Cluster / Value Band / Pro / Flagship) with capability tags |
+| `GET /catalog.json` | Machine-readable service catalog (33+ endpoints with tier + tags) |
 | `GET /penny-stack` | Cheapest 4 x402 walls — landing page with live prices |
 | `GET /penny-stack.json` | Machine-readable penny-stack data |
 

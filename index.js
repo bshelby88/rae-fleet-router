@@ -1529,23 +1529,25 @@ app.get("/buy/:slug", async (req, res) => {
       // Free route (registered ABOVE paymentMiddleware; never a 402).
       // ───────────────────────────────────────────────────────────────────────────
       function catalogWallItems(items, hostName) {
-        return items.map(i => ({
-          slug: i.slug,
-          host: i.host,
-          host_name: hostName,
-          endpoint: i.endpoint,
-          method: i.method,
-          price_usdc: i.price_usdc,
-          amount_micro: i.amount_micro,
-          network: i.network,
-          payTo: i.payTo,
-          asset: i.asset,
-          facilitator: i.facilitator,
-          description: String(i.description || "").slice(0, 300),
-          duplicate_of: i.duplicate_of,
-          status: i.status,
-          endpoint_url: i.endpoint_url,
-        }));
+              return items.map(i => ({
+                slug: i.slug,
+                host: i.host,
+                host_name: hostName,
+                endpoint: i.endpoint,
+                method: i.method,
+                price_usdc: i.price_usdc,
+                amount_micro: i.amount_micro,
+                network: i.network,
+                payTo: i.payTo,
+                asset: i.asset,
+                facilitator: i.facilitator,
+                description: String(i.description || "").slice(0, 300),
+                duplicate_of: i.duplicate_of,
+                status: i.status,
+                endpoint_url: i.endpoint_url,
+                tier: priceTier(i.price_usdc),
+                tags: itemTags(i.slug),
+              }));
       }
 
       app.get("/catalog.json", async (req, res) => {
@@ -1600,14 +1602,141 @@ app.get("/buy/:slug", async (req, res) => {
           },
         };
         res.set("Cache-Control", "public, max-age=300");
-        res.json(catalog);
-      });
+                res.json(catalog);
+              });
 
-      // ---------------------------------------------------------------------------
-    // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
+              // EXEC-109 — GET /catalog: HTML tiered service catalog page, built from the
+              // same live buyCache as /catalog.json. Free route (never a 402).
+              // ───────────────────────────────────────────────────────────────────────────
+              const CATALOG_TIERS = [
+                { id: "penny-cluster", label: "Penny Cluster", maxPrice: 0.01, desc: "Every call costs one USDC cent. No account, no subscription, no credit card." },
+                { id: "value-band", label: "Value Band", minPrice: 0.02, maxPrice: 0.05, desc: "Two to five cents per call — utility-grade pricing for regular agent workloads." },
+                { id: "pro", label: "Pro", minPrice: 0.06, maxPrice: 0.10, desc: "Six to ten cents — professional-grade services for serious agent operations." },
+                { id: "flagship", label: "Flagship", minPrice: 0.11, desc: "Premium services at a quarter or more — deep analysis, compliance, and legal-grade output." },
+              ];
 
-// ---------------------------------------------------------------------------
-// EXEC-102 / EXEC-103 — free guided picker (/recommend, /recommend.json) and
+              function priceTier(priceUsdc) {
+                const p = Number(priceUsdc);
+                if (p <= 0.01) return "penny-cluster";
+                if (p <= 0.05) return "value-band";
+                if (p <= 0.10) return "pro";
+                return "flagship";
+              }
+
+              const CATALOG_TAGS = {
+                "briefsnap": ["document", "summarization"],
+                "briefsnap__extract-actions": ["document", "extraction"],
+                "briefsnap__eli5": ["document", "simplification"],
+                "briefsnap__compare-docs": ["document", "comparison"],
+                "dispatch": ["routing", "agent-orchestration"],
+                "dispute-forge": ["compliance", "legal"],
+                "escrow": ["payments", "escrow"],
+                "nanobanana": ["image-generation", "ai"],
+                "nanobanana__edit-image": ["image-generation", "editing"],
+                "nft-alpha": ["nft", "market-data"],
+                "power-pack": ["email", "scoring"],
+                "rae-fleet-router": ["bundle", "orchestration"],
+                "rae-fleet-router__tip": ["payment", "gratuity"],
+                "rae-fleet-router__bundle_market-starter": ["bundle", "market-data"],
+                "rae-fleet-router__bundle_market-intel-trio": ["bundle", "market-intel"],
+                "rae-fleet-router__bundle_full-fleet-sampler": ["bundle", "sampler"],
+                "raen-portfolio": ["portfolio", "health"],
+                "royal-feel": ["compliance", "copy-lint"],
+                "royal-feel__copy-lint": ["compliance", "copy-lint"],
+                "royal-feel__batch-lint": ["compliance", "batch-lint"],
+                "royal-ruby": ["legal", "research"],
+                "suprapack": ["skills", "search"],
+                "suprapack__get-skill": ["skills", "lookup"],
+                "suprapack__list-top": ["skills", "browse"],
+                "tradingagents__analyze-arbitrage": ["trading", "arbitrage"],
+                "tradingagents": ["trading", "analysis"],
+                "vault-pro": ["project-management", "scaffolding"],
+                "vault-pro__scaffold-agent": ["agent-management", "scaffolding"],
+              };
+
+              function itemTags(slug) {
+                return CATALOG_TAGS[slug] || ["general"];
+              }
+
+              function renderCatalogHtml(walls) {
+                const allItems = walls.flatMap((w) => w.items);
+                const tiered = {};
+                for (const t of CATALOG_TIERS) tiered[t.id] = [];
+                for (const i of allItems) {
+                  const tier = priceTier(i.price_usdc);
+                  if (tiered[tier]) tiered[tier].push(i);
+                }
+                const tierHtml = CATALOG_TIERS.map((t) => {
+                  const items = tiered[t.id] || [];
+                  if (items.length === 0) return "";
+                  const cards = items.map((i) => {
+                    const price = i.amount_micro ? usdFromMicro(i.amount_micro) : "—";
+                    const priceLabel = "$" + price + " USDC";
+                    const ep = (i.method || "POST") + " " + (i.endpoint_url || "");
+                    const tags = itemTags(i.slug).map((tg) => `<span class="c-tag">${escHtml(tg)}</span>`).join("");
+                    return `<div class="c-card">
+          <h3><a href="/buy/${escHtml(i.slug)}">${escHtml(i.slug)}</a></h3>
+          <p class="c-tags">${tags}</p>
+          <p class="c-desc">${escHtml(String(i.description || "").slice(0, 200))}</p>
+          <p class="c-price">${escHtml(priceLabel)}</p>
+          <p class="c-ep"><code>${escHtml(ep)}</code></p>
+          <a href="/buy/${escHtml(i.slug)}" class="c-btn">Buy — ${escHtml(price)} USDC</a>
+        </div>`;
+                  }).join("\n");
+                  const tDesc = t.desc ? `<p class="c-tier-desc">${escHtml(t.desc)}</p>` : "";
+                  return `<div class="c-tier">
+          <h2 class="c-tier-h">${escHtml(t.label)}</h2>
+          ${tDesc}
+          ${cards}
+        </div>`;
+                }).join("\n");
+                return `<!doctype html>
+        <html lang="en"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>RAE Fleet Service Catalog — USDC on Base</title>
+        <meta name="description" content="Browse all RAE Fleet x402 services by tier. Every call is paid in USDC on Base mainnet — no API keys, no subscriptions.">
+        <style>body{font-family:system-ui,sans-serif;max-width:1024px;margin:2rem auto;padding:0 1rem;color:#111;line-height:1.5}
+        .c-tier{margin:1.5rem 0;padding:1px 0}
+        .c-tier-h{font-size:1.5rem;margin:1.5rem 0 .3rem;border-bottom:2px solid #ddd;padding-bottom:.3rem}
+        .c-tier-desc{color:#555;margin:.3rem 0 .8rem;font-size:.95rem}
+        .c-card{border:1px solid #ddd;border-radius:10px;padding:.9rem 1.1rem;margin:.6rem 0}
+        .c-card h3{margin:0 0 .3rem;font-size:1.05rem}
+        .c-card h3 a{color:#111;text-decoration:none}
+        .c-card h3 a:hover{text-decoration:underline}
+        .c-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin:.2rem 0}
+        .c-tag{display:inline-block;background:#eef;border-radius:4px;padding:.1rem .5rem;font-size:.75rem;color:#448}
+        .c-desc{color:#444;margin:.2rem 0;font-size:.9rem}
+        .c-price{font-weight:600;margin:.2rem 0;color:#065;font-size:.95rem}
+        .c-ep{font-size:.8rem;color:#666;margin:.3rem 0;word-break:break-all;font-family:ui-monospace,monospace}
+        .c-btn{display:inline-block;padding:.35rem .9rem;background:#0d7;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.88rem;margin-top:.3rem}
+        .c-btn:hover{background:#0b5}
+        .hero{background:#f0fdf5;border-radius:12px;padding:1.2rem 1.5rem;margin:0 0 1.5rem}
+        .hero h1{margin:0 0 .3rem;font-size:1.8rem}
+        .hero p{color:#444;margin:.4rem 0}
+        .hero .c-stats{font-size:.9rem;color:#666}
+        footer{margin-top:2rem;color:#555;font-size:.85rem}</style>
+        </head><body>
+        <div class="hero">
+        <h1>RAE Fleet Service Catalog</h1>
+        <p>Browse all x402 services organized by price tier. Every endpoint is paid in USDC on Base mainnet — no API keys, no subscriptions, one wallet.</p>
+        <p class="c-stats">${allItems.length} endpoints across ${walls.length} walls · Network: eip155:8453 · USDC: ${MAINNET_USDC}</p>
+        </div>
+        ${tierHtml}
+        <footer>Prices crawled live from each wall's /pricing.md. The live 402 challenge is authoritative.<br>
+        <a href="/buy">Browse by wall</a> · <a href="/catalog.json">JSON catalog</a> · <a href="/penny-stack">Penny stack</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.3rem"></a></footer>
+        </body></html>`;
+              }
+
+              app.get("/catalog", async (_req, res) => {
+                const walls = await buildBuyIndex();
+                res.type("text/html; charset=utf-8").send(renderCatalogHtml(walls));
+              });
+
+              // ---------------------------------------------------------------------------
+            // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
+
+        // ---------------------------------------------------------------------------
+        // EXEC-102 / EXEC-103 — free guided picker (/recommend, /recommend.json) and
 // iframe-able buy card (/embed/:slug). Copy packs: fleet_db/plan-78-recommend-copy.json
 // and fleet_db/plan-77-buy-copy.json (embedded below; all slugs verified against
 // the 2026-10-02 /buy snapshot). Free routes, registered above paymentMiddleware.
