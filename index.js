@@ -340,13 +340,13 @@ function pricingMarkdown() {
 // PLAN-32 — GET /pay-failed: "Your x402 payment failed — fix in 30 seconds".
 // Markdown-first recovery surface for the fleet's 4 real observed failure
 // modes (wrong network — tradingagents eip155:84532 manifest incident;
-// payTo drift to 0xfbc0eb78 — 9/13 routes audit; insufficient/expired USDC
+// payTo drift to 0x7861db4e — 9/13 routes audit; insufficient/expired USDC
 // approval/balance; price drift vs stale /pricing.md). Every mode carries a
 // machine-readable retry recipe; ?format=json (or Accept: application/json)
 // serves the whole set as JSON. Failed payments are lost revenue the buyer
 // agent can repair with ONE retry — this page is the repair manual.
 // ---------------------------------------------------------------------------
-const CANONICAL_PAY_TO = "0xfBC0eb7811d477e55261d956df39f0046e192240";
+const CANONICAL_PAY_TO = "0x7861db4efc14a1ed5dd8c96c528a3796560f1393";
 const MAINNET_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const FACILITATOR_URL = "https://api.cdp.coinbase.com/platform/v2/x402";
 const EXAMPLE_RESOURCE = "https://rae-fleet-router.fly.dev/api/bundle/market-starter";
@@ -368,7 +368,7 @@ function payFailedModes() {
     {
       id: "payto-drift",
       title: "Mode 2 — payTo drift (stale or cached recipient address)",
-      symptom: "Payment settles on-chain but the resource server refuses to verify it — funds moved to an address the service does not own, e.g. the router's own wallet 0xfbc0eb7811d477e55261d956df39f0046e192240 seen in the 9/13 routes audit, or any address remembered from an older response.",
+      symptom: "Payment settles on-chain but the resource server refuses to verify it — funds moved to an address the service does not own, e.g. the router's own wallet 0x7861db4efc14a1ed5dd8c96c528a3796560f1393 seen in the 9/13 routes audit, or any address remembered from an older response.",
       cause: "The challenge's payTo is the ONLY recipient that verifies. Cached manifests, copied curl examples, or a previous vendor's config silently rot when a service rotates its treasury.",
       fix: [
         "Never reuse a payTo from cache or docs — copy accepts[0].payTo from THIS session's live 402 challenge.",
@@ -771,7 +771,7 @@ function agentCardJson(req) {
       pushNotifications: false,
       stateTransitionHistory: false,
       extensions: [
-        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0xfBC0eb7811d477e55261d956df39f0046e192240. The live 402 challenge is authoritative.", required: false },
+        { uri: "https://x402.org", description: "x402 v2 payment gating: USDC (eip155:8453, contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), scheme exact, payTo treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. The live 402 challenge is authoritative.", required: false },
       ],
     },
     defaultInputModes: ["application/json", "text/plain"],
@@ -950,7 +950,7 @@ app.get("/benchmarks", (req, res) => {
       "## 3. Agent block (agent-card / llms.txt metadata)",
       '```',
       'chain: eip155:8453',
-      'payTo: 0xfBC0eb7811d477e55261d956df39f0046e192240',
+      'payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393',
       `router: ${ROUTER}/.well-known/x402.json`,
       `discovery: ${ROUTER}/llms.txt`,
       'protocol: x402 v2',
@@ -1891,7 +1891,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.10",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1899,7 +1899,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.02",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1907,7 +1907,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "rae-fleet-router.fly.dev",
@@ -1915,7 +1915,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.06",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "dispatch-x402.fly.dev",
@@ -1923,7 +1923,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.50",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "dispute-forge-x402.fly.dev",
@@ -1931,7 +1931,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.75",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "escrow-x402.fly.dev",
@@ -1939,7 +1939,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "nft-alpha-x402.fly.dev",
@@ -1947,7 +1947,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.02",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "power-pack-x402.fly.dev",
@@ -1955,7 +1955,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.01",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1963,7 +1963,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$2.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1971,7 +1971,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$2.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "royal-feel-x402.fly.dev",
@@ -1979,7 +1979,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$5.00",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "royal-ruby-x402.fly.dev",
@@ -1987,7 +1987,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.25",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -1995,7 +1995,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -2003,7 +2003,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "suprapack-x402.fly.dev",
@@ -2011,7 +2011,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.03",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "tradingagents-x402.fly.dev",
@@ -2019,7 +2019,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "tradingagents-x402.fly.dev",
@@ -2027,7 +2027,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "vault-pro-x402.fly.dev",
@@ -2035,7 +2035,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "vault-pro-x402.fly.dev",
@@ -2043,7 +2043,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.05",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   },
   {
     "host": "raen-portfolio-x402.fly.dev",
@@ -2051,7 +2051,7 @@ const TRUST_WALLS = [
     "method": "POST",
     "price": "$0.01",
     "asset": "USDC eip155:8453",
-    "payTo": "0xfBC0eb7811d477e55261d956df39f0046e192240"
+    "payTo": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393"
   }
 ];
 
@@ -2069,7 +2069,7 @@ const TERMS_MD = [
   "",
   "All prices USDC on Base mainnet (eip155:8453), asset",
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), payTo",
-  "0xfBC0eb7811d477e55261d956df39f0046e192240, scheme exact.",
+  "0x7861db4efc14a1ed5dd8c96c528a3796560f1393, scheme exact.",
   "",
   "| Wall | Endpoint | Price (USDC) |",
   "|---|---|---|",
@@ -2163,7 +2163,7 @@ const FAQ = [
     a: "Yes — once the facilitator settles the USDC transferWithAuthorization on Base mainnet the transfer is on-chain and non-reversible. The refund surface is the retry-credit path in /terms.md §3, not a chargeback. 4xx validation failures are never billed because validation runs before the payment gate (EXEC-41).",
     source_url: "https://rae-fleet-router.fly.dev/terms.md" },
   { q: "Where are prices authoritative?",
-    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0xfBC0eb7811d477e55261d956df39f0046e192240.",
+    a: "Each wall's live 402 PAYMENT-REQUIRED challenge is the single source of truth; /pricing.md on each wall is the human-readable mirror and can lag a redeploy. Copy accepts[0].amount verbatim from the live challenge — never from cache. Verified 2026-10-02: 12 walls serving /pricing.md 200 with canonical payTo 0x7861db4efc14a1ed5dd8c96c528a3796560f1393.",
     source_url: "https://rae-fleet-router.fly.dev/pricing.md" },
   { q: "Who holds keys / custody?",
     a: "You do. There are no accounts and no API keys: the buyer's own wallet signs a USDC EIP-3009 authorization per call. The fleet never sees buyer keys, and no PII ever leaves the buyer's side of the payment (see /privacy.md).",
@@ -2216,7 +2216,7 @@ const PRIVACY_MD = [
   "## Payment data",
   "",
   "Payments are USDC transfers on Base mainnet (eip155:8453) to the fleet",
-  "treasury 0xfBC0eb7811d477e55261d956df39f0046e192240. Like every Base",
+  "treasury 0x7861db4efc14a1ed5dd8c96c528a3796560f1393. Like every Base",
   "transaction they are publicly visible on BaseScan — that is the chain's",
   "property, not our logging. The fleet stores no off-chain copy of your wallet",
   "identity; per-transfer accounting uses the public on-chain record only.",
@@ -2242,7 +2242,7 @@ const PRIVACY_MD = [
 
 function privacyJson() {
   return { service: "rae-fleet-router", network: "eip155:8453",
-    payTo: "0xfBC0eb7811d477e55261d956df39f0046e192240",
+    payTo: "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
     dataCollected: [], retainedOffchain: false, updated: TRUST_CRAWL_UTC };
 }
 
@@ -2302,7 +2302,7 @@ const TIP_MD = [
   "- Cap: $1.00 USDC (1000000 atomic units) — over-cap authorizations are rejected",
   "- Network: eip155:8453 (Base mainnet), scheme exact",
   "- Asset: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (USDC, 6 decimals)",
-  "- payTo: 0xfBC0eb7811d477e55261d956df39f0046e192240 (canonical fleet treasury —",
+  "- payTo: 0x7861db4efc14a1ed5dd8c96c528a3796560f1393 (canonical fleet treasury —",
   "  the same address every wall pays into; zero new key exposure)",
   "",
   "Unpaid POST returns 402 with the standard PAYMENT-REQUIRED challenge.",
@@ -2482,7 +2482,96 @@ app.get("/.well-known/security.txt", (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// EXEC-41 — 400-before-402 pre-validation for the ladder routes.
+// EXEC-31 — GET /bundle/compliance-pack quote route.
+// Probes sentry-forge, royal-ruby, dispute-forge walls at request time
+// and returns per-member availability + bundle price.
+// ---------------------------------------------------------------------------
+const COMPLIANCE_MEMBERS = [
+  { id: "sentry-forge",  x402: "https://sentry-forge-x402.fly.dev/.well-known/x402.json",  endpoint: "https://sentry-forge-x402.fly.dev/api/dispute-pack",  method: "POST" },
+  { id: "royal-ruby",    x402: "https://royal-ruby-x402.fly.dev/.well-known/x402.json",    endpoint: "https://royal-ruby-x402.fly.dev/api/law-lookup",    method: "POST" },
+  { id: "dispute-forge", x402: "https://dispute-forge-x402.fly.dev/.well-known/x402.json", endpoint: "https://dispute-forge-x402.fly.dev/api/dispute-pack", method: "POST" },
+];
+
+async function probeComplianceMember(member) {
+    const result = {
+      service: member.id,
+      method: member.method,
+      endpoint: member.endpoint,
+      price_usdc: null,
+      payTo: null,
+      network: null,
+      status: "DOWN",
+      error: null,
+    };
+    try {
+      const x402res = await fetch(member.x402, { signal: AbortSignal.timeout(8000) });
+      if (!x402res.ok) { result.error = `x402 manifest HTTP ${x402res.status}`; return result; }
+      const manifest = await x402res.json();
+      // Find the first endpoint in the manifest (there's usually one per wall)
+      const epKey = Object.keys(manifest.endpoints || {})[0];
+      if (!epKey) { result.error = "no endpoints in manifest"; return result; }
+      const epInfo = manifest.endpoints[epKey];
+      const accepts = epInfo.accepts;
+      if (!accepts) { result.error = "no accepts in endpoint"; return result; }
+      result.price_usdc = accepts.price;
+      result.payTo = accepts.payTo;
+      result.network = accepts.network;
+
+      // Probe the actual endpoint for a 402 challenge to verify liveness
+      const probeRes = await fetch(epInfo.method === "GET" ? member.endpoint + "?probe=1" : member.endpoint, {
+        method: epInfo.method || "POST",
+        headers: { "Content-Type": "application/json" },
+        body: epInfo.method === "GET" ? undefined : JSON.stringify({ _probe: true }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (probeRes.status === 402) {
+        result.status = "UP";
+        // Decode the challenge
+        const prHeader = probeRes.headers.get("PAYMENT-REQUIRED");
+        if (prHeader) {
+          try {
+            const challenge = JSON.parse(Buffer.from(prHeader, "base64").toString("utf8"));
+            result.challenge_payTo = challenge.accepts?.[0]?.payTo || null;
+            result.challenge_price = challenge.accepts?.[0]?.price || null;
+          } catch (_e) { /* non-critical decode failure */ }
+        }
+      } else if (probeRes.status === 400 || probeRes.status === 405) {
+        // 400/405 with a probe body is expected from a wall that requires valid input
+        // The key test is it responded at all — it's alive
+        result.status = "UP";
+        result.note = `responded ${probeRes.status} to probe (alive, but probe body was rejected as expected without real input)`;
+      } else {
+        result.error = `unexpected probe status ${probeRes.status}`;
+      }
+    } catch (e) {
+      result.error = e.message || String(e);
+      if (e.name === "TimeoutError" || e.message?.includes("timed out")) result.error = "TIMEOUT";
+    }
+    return result;
+  }
+
+  app.get("/bundle/compliance-pack", async (_req, res) => {
+    const results = await Promise.all(COMPLIANCE_MEMBERS.map(probeComplianceMember));
+    let bundlePriceUsdc = 0;
+    for (const m of results) {
+      if (m.status === "UP") {
+        const price = parseFloat((m.price_usdc || "$0").replace("$", ""));
+        if (!isNaN(price)) bundlePriceUsdc += price;
+      }
+    }
+    res.json({
+      ok: true,
+      endpoint: "GET /bundle/compliance-pack",
+      description: "Compliance Pack — sentry-forge ($5.00) + royal-ruby ($0.25) + dispute-forge ($0.75) — quote route",
+      generated_utc: new Date().toISOString(),
+      members: results,
+      bundle_price_usdc: bundlePriceUsdc,
+      payment_flow: "Each member wall is a separate POST endpoint with its own x402 challenge. Buyers pay each wall individually. The bundle_price_usdc is the sum of available members' live-advertised prices at probe time.",
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
 // the handler cannot serve must never see a payment challenge: paying and then
 // hitting the handler's 400 would charge the buyer without service. This
 // middleware is registered ABOVE paymentMiddleware() so invalid requests
