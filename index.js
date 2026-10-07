@@ -169,7 +169,114 @@ app.use(express.json({ limit: "1mb" }));
 const { coinbaseOAuthMiddleware, requireCoinbaseAuth } = require("./lib/coinbase-oauth-middleware");
 app.use(coinbaseOAuthMiddleware);
 
-app.get("/health", (_req, res) => res.json({ status: "ok", service: "rae-fleet-router", network: NETWORK, payTo: PAY_TO }));
+// EXEC-121: Buyer-facing fleet health page — probes all 15 walls' /health endpoints
+// and renders HTML with green/yellow/red status indicators, uptime %, last-checked timestamp.
+// Also supports ?format=json for machine consumption. Free route (above paymentMiddleware).
+const HEALTH_PROBE_TIMEOUT_MS = 5000;
+
+async function probeWallHealth(wall) {
+  const host = wall.app + ".fly.dev";
+  const url = `https://${host}/health`;
+  const start = Date.now();
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(HEALTH_PROBE_TIMEOUT_MS) });
+    const elapsed = Date.now() - start;
+    const body = await res.json().catch(() => ({}));
+    return {
+      slug: wall.slug, host, url,
+      status: res.status, ok: res.ok, elapsed_ms: elapsed,
+      service: body.service || null, network: body.network || null,
+      payTo: body.payTo || null, error: null,
+    };
+  } catch (e) {
+    return {
+      slug: wall.slug, host, url,
+      status: 0, ok: false, elapsed_ms: Date.now() - start,
+      service: null, network: null, payTo: null,
+      error: String(e && e.message || e),
+    };
+  }
+}
+
+function renderHealthPage(results, generatedUtc) {
+  const total = results.length;
+  const healthy = results.filter(r => r.ok && r.status === 200).length;
+  const degraded = results.filter(r => r.ok && r.status !== 200).length;
+  const down = results.filter(r => !r.ok).length;
+  const uptimePct = total > 0 ? ((healthy / total) * 100).toFixed(1) : "0.0";
+  const rows = results.map(r => {
+    const color = r.ok && r.status === 200 ? "#22c55e" : r.ok ? "#eab308" : "#ef4444";
+    const statusText = r.ok && r.status === 200 ? "HEALTHY" : r.ok ? "DEGRADED" : "DOWN";
+    return `<tr>
+      <td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:8px"></span>${escHtml(r.slug)}</td>
+      <td>${escHtml(r.host)}</td>
+      <td>${r.status || "—"}</td>
+      <td>${r.elapsed_ms}ms</td>
+      <td>${statusText}</td>
+      <td>${r.error ? escHtml(r.error) : "—"}</td>
+    </tr>`;
+  }).join("\n");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAE Fleet Health</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; background: #0f172a; color: #e2e8f0; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  .meta { color: #94a3b8; font-size: .875rem; margin-bottom: 1.5rem; }
+  .summary { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .card { background: #1e293b; border-radius: .5rem; padding: 1rem 1.5rem; flex: 1; min-width: 120px; }
+  .card .num { font-size: 2rem; font-weight: 700; }
+  .card .label { font-size: .75rem; color: #94a3b8; text-transform: uppercase; }
+  .card.healthy .num { color: #22c55e; }
+  .card.degraded .num { color: #eab308; }
+  .card.down .num { color: #ef4444; }
+  .card.uptime .num { color: #38bdf8; }
+  table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+  th { text-align: left; padding: .5rem; border-bottom: 1px solid #334155; color: #94a3b8; font-weight: 600; }
+  td { padding: .5rem; border-bottom: 1px solid #1e293b; }
+  tr:hover td { background: #1e293b; }
+  a { color: #38bdf8; }
+</style>
+</head>
+<body>
+<h1>RAE Fleet Health</h1>
+<div class="meta">Generated ${escHtml(generatedUtc)} · ${total} walls probed</div>
+<div class="summary">
+  <div class="card healthy"><div class="num">${healthy}</div><div class="label">Healthy</div></div>
+  <div class="card degraded"><div class="num">${degraded}</div><div class="label">Degraded</div></div>
+  <div class="card down"><div class="num">${down}</div><div class="label">Down</div></div>
+  <div class="card uptime"><div class="num">${uptimePct}%</div><div class="label">Uptime</div></div>
+</div>
+<table>
+<thead><tr><th>Wall</th><th>Host</th><th>HTTP</th><th>Latency</th><th>Status</th><th>Error</th></tr></thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+</body>
+</html>`;
+}
+
+app.get("/health", async (req, res) => {
+  const format = req.query.format || "html";
+  const results = await Promise.all(BUY_WALLS.map(probeWallHealth));
+  const generatedUtc = new Date().toISOString();
+  if (format === "json") {
+    return res.json({
+      generated_utc: generatedUtc,
+      total: results.length,
+      healthy: results.filter(r => r.ok && r.status === 200).length,
+      degraded: results.filter(r => r.ok && r.status !== 200).length,
+      down: results.filter(r => !r.ok).length,
+      uptime_pct: results.length > 0 ? parseFloat(((results.filter(r => r.ok && r.status === 200).length / results.length) * 100).toFixed(1)) : 0,
+      walls: results,
+    });
+  }
+  res.type("text/html; charset=utf-8").send(renderHealthPage(results, generatedUtc));
+});
 
 // Coinbase OAuth session status — returns current user info if authenticated.
 // Used by raen-auth callback and by walls to verify the active session.
