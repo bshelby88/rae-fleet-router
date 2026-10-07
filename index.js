@@ -1404,6 +1404,21 @@ function renderBuyIndexHtml(walls) {
 <p>Every card is generated at request time from the wall's own live machine
 surfaces (x402 manifest + 402 challenge), cached 300&nbsp;s. Machine variant:
 <code>GET /buy?format=json</code>.</p>
+<section style="border:2px solid #06c;border-radius:12px;padding:1rem 1.2rem;margin:1.2rem 0;background:#f0f7ff">
+<h2 style="margin:0 0 .5rem">Volume Discounts</h2>
+<p>High-volume buyers save more. Discounts apply automatically based on your monthly call count.</p>
+<table style="width:100%;border-collapse:collapse;margin:.5rem 0">
+<thead><tr style="background:#e0e0e0"><th style="padding:.4rem;text-align:left">Tier</th><th style="padding:.4rem;text-align:left">Monthly Calls</th><th style="padding:.4rem;text-align:left">Discount</th><th style="padding:.4rem;text-align:left">Effective Price</th></tr></thead>
+<tbody>
+<tr><td style="padding:.4rem">Tier 0</td><td style="padding:.4rem">1–9</td><td style="padding:.4rem">0%</td><td style="padding:.4rem">List price</td></tr>
+<tr style="background:#f5f5f5"><td style="padding:.4rem">Tier 1</td><td style="padding:.4rem">10–49</td><td style="padding:.4rem">10% off</td><td style="padding:.4rem">90% of list</td></tr>
+<tr><td style="padding:.4rem">Tier 2</td><td style="padding:.4rem">50–99</td><td style="padding:.4rem">20% off</td><td style="padding:.4rem">80% of list</td></tr>
+<tr style="background:#f5f5f5"><td style="padding:.4rem">Tier 3</td><td style="padding:.4rem">100+</td><td style="padding:.4rem">30% off</td><td style="padding:.4rem">70% of list</td></tr>
+</tbody>
+</table>
+<p style="margin:.3rem 0"><strong>Example:</strong> briefsnap at $1.00 → $0.90 (Tier 1) → $0.80 (Tier 2) → $0.70 (Tier 3)</p>
+<p style="margin:.3rem 0"><strong>Pre-paid packs:</strong> Starter (10 calls, $0.90) · Pro (50 calls, $4.00) · Enterprise (100 calls, $7.00)</p>
+</section>
 ${cards}
 <footer>Every wall on Base, USDC, no API keys — index at <code>/buy</code>.<br>
 <a href="/buy?format=json">JSON</a> · <a href="/buy/gift">\u{1F381} Gift a wall</a> · <a href="/penny-stack">\u{1F9E9} Penny Stack — cheapest 4 walls</a> · <a href="/catalog.json">Catalog</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
