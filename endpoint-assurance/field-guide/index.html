@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A practical guide to timestamped DNS, TLS, redirect, HTTP, and customer-path evidence, with a fully synthetic sample.">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+  <link rel="canonical" href="https://bshelby88.github.io/rae-endpoint-assurance/field-guide/">
+  <meta property="og:title" content="Public Endpoint Evidence Field Guide">
+  <meta property="og:description" content="What bounded public endpoint observations can prove—and what they cannot.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://bshelby88.github.io/rae-endpoint-assurance/field-guide/">
+  <title>Public Endpoint Evidence Field Guide | RAE</title>
+  <style>:root{--ink:#172421;--muted:#596762;--paper:#f7f5ef;--card:#fff;--accent:#146b58;--line:#d7ddd7;--note:#e7f2ee}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--accent)}a:focus-visible{outline:3px solid #ffbf47;outline-offset:3px}.skip{position:absolute;left:-9999px}.skip:focus{left:12px;top:12px;background:#fff;padding:8px;z-index:2}header,main,footer{width:min(850px,calc(100% - 36px));margin:auto}header{padding:44px 0 16px}nav{display:flex;gap:18px;flex-wrap:wrap}main{padding:18px 0 56px}h1,h2{font-family:Georgia,serif;line-height:1.15}h1{font-size:clamp(2.4rem,6vw,4.6rem);margin:.35em 0}h2{font-size:1.8rem;margin-top:2em}.lede{font-size:1.2rem;color:var(--muted);max-width:700px}.notice,.sample,.offer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin:24px 0}.notice{background:var(--note);border-color:#a8c8bd}.label{font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;color:var(--accent)}dl{display:grid;grid-template-columns:minmax(120px,180px) 1fr;gap:8px 16px}dt{font-weight:750}dd{margin:0}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}pre{overflow:auto;background:#11201c;color:#eaf5f1;border-radius:10px;padding:18px;font-size:.88rem}.cta{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:750;padding:13px 18px;border-radius:9px}.fine{color:var(--muted);font-size:.9rem}footer{border-top:1px solid var(--line);padding:24px 0 42px}@media(max-width:600px){dl{grid-template-columns:1fr}dd{margin-bottom:10px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}</style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <header>
+    <nav aria-label="Primary"><a href="../">Endpoint Assurance Sprint</a><a href="synthetic-sample.json">Synthetic sample JSON</a><a href="../request-fit-check/">Prepare a fit-check request</a></nav>
+  </header>
+  <main id="main">
+    <div class="label">Field guide</div>
+    <h1>Public endpoint evidence, without the guesswork.</h1>
+    <p class="lede">A bounded observation records what an external client saw during a defined window. It does not automatically establish root cause, uptime, security, compliance, or customer impact.</p>
+    <aside class="notice" aria-label="Synthetic sample disclosure"><strong>Synthetic demonstration.</strong> The sample on this page is fictional and illustrative. It is not a customer engagement, testimonial, production incident, independent verification, or proof of results.</aside>
+
+    <h2>What to record</h2>
+    <dl>
+      <dt>DNS</dt><dd>Resolved record type, returned documentation address, resolver context, UTC timestamp, and limitations.</dd>
+      <dt>TLS</dt><dd>Presented hostname, issuer, validity window, certificate fingerprint placeholder, and protocol observation.</dd>
+      <dt>Redirects</dt><dd>Each public hop, status, destination, and whether the final URL matches the expected customer path.</dd>
+      <dt>HTTP</dt><dd>Status, bounded latency sample, selected safe headers, and a sanitized response-content hash.</dd>
+      <dt>Customer path</dt><dd>Whether the agreed public pages agree with one another. A homepage 200 does not prove that documentation, authentication, checkout, or webhooks work.</dd>
+    </dl>
+
+    <h2>Observation is not inference</h2>
+    <div class="sample">
+      <p><strong>Observed:</strong> During the synthetic UTC sample window, the fictional documentation URL returned a redirect to the canonical HTTPS path and then a 200 response.</p>
+      <p><strong>Inference:</strong> Not determined. One successful response does not establish availability, correctness, security, or the health of other customer paths.</p>
+      <p><strong>Recommendation:</strong> Repeat the same bounded observation from an independently controlled environment and compare the immutable evidence records before deciding whether remediation is needed.</p>
+    </div>
+
+    <h2>Synthetic evidence shape</h2>
+    <pre aria-label="Synthetic evidence excerpt"><code>{
+  "classification": "synthetic_example",
+  "target": "https://api.example.com/docs",
+  "observed_at": "2026-08-14T16:00:00Z",
+  "http_status": 200,
+  "inference": "not_determined"
+}</code></pre>
+    <p><a href="synthetic-sample.json">Open the complete machine-readable synthetic JSON sample</a>. It uses reserved domains and documentation addresses only.</p>
+
+    <h2>Reproducibility checklist</h2>
+    <ul>
+      <li>Record UTC timestamps, observer identity class, method, and tool version.</li>
+      <li>Normalize the target and reject private, local, reserved-network destinations during real checks.</li>
+      <li>Revalidate every redirect and preserve the ordered redirect chain.</li>
+      <li>Hash sanitized evidence artifacts and keep observations append-only.</li>
+      <li>Separate observation, inference, recommendation, and untested hypothesis.</li>
+      <li>Use independent verification before calling a remediation complete.</li>
+    </ul>
+
+    <h2>Boundaries</h2>
+    <p>This method is not penetration testing, vulnerability assessment, certification, compliance assurance, continuous uptime monitoring, or proof of root cause. It uses only customer-authorized public targets. Private systems, credentials, invasive testing, and production implementation are excluded.</p>
+
+    <section class="offer">
+      <h2>Want the bounded scope?</h2>
+      <p>The proposed founding-client sprint is $500 for one customer-controlled service, up to three named public URLs, three observations, a timestamped evidence report, prioritized backlog, and one change-ready runbook. Delivery is proposed for two business days after the complete start gate.</p>
+      <a class="cta" href="../request-fit-check/">Prepare a non-binding fit-check request</a>
+      <p class="fine">The request page prepares an email in your own mail client. It does not create an order, accept a scope, start work, or collect payment.</p>
+    </section>
+  </main>
+  <footer><p>Royal Agentic Enterprises is presented here as a project and brand. This page is educational marketing, not terms, a contract, an invoice, or a privacy policy.</p></footer>
+</body>
+</html>

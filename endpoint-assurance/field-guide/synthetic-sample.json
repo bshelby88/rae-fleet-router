@@ -1,0 +1,37 @@
+{
+  "schema_version": "endpoint-evidence.synthetic.v1",
+  "classification": "synthetic_example",
+  "disclosure": "Illustrative fictional data only; not customer evidence, uptime proof, certification, security audit, or a service outcome.",
+  "engagement_id": "ea_en_00000000-0000-5000-8000-000000000001",
+  "observation_id": "ea_obs_00000000-0000-5000-8000-000000000002",
+  "observed_at": "2026-08-14T16:00:00Z",
+  "observer": "synthetic_external_observer",
+  "tool_version": "endpoint-assurance-example/1.0",
+  "target": "https://api.example.com/docs",
+  "dns": {
+    "answers": ["192.0.2.10", "2001:db8::10"],
+    "result": "synthetic_answer"
+  },
+  "tls": {
+    "subject": "CN=api.example.com",
+    "issuer": "CN=Example Documentation CA",
+    "valid_from": "2026-08-01T00:00:00Z",
+    "valid_until": "2026-11-01T00:00:00Z",
+    "certificate_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "redirect_chain": [
+    {"url": "https://api.example.com/docs", "status": 301, "location": "https://api.example.com/docs/"},
+    {"url": "https://api.example.com/docs/", "status": 200, "location": null}
+  ],
+  "http": {
+    "status": 200,
+    "latency_ms": 184,
+    "sanitized_response_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "observation": "The synthetic final URL returned HTTP 200 during this timestamped example window.",
+  "inference": "not_determined",
+  "limitations": [
+    "One observation does not establish uptime, correctness, security, compliance, root cause, or customer impact.",
+    "All identifiers, domains, addresses, timestamps, and hashes in this file are fictional documentation data."
+  ]
+}
