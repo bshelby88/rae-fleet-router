@@ -739,7 +739,7 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   serverApp.get("/llms.txt", (req, res) => {
     const lines = Object.entries(routes).map(([rk, rv]) =>
       `- ${rk}: ${rv.accepts.price} USDC — ${rv.description.split(/\.(?:\s|$)/)[0]}. Sum-of-parts and bundle math: /pricing.md`);
-    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nHow it works: GET /how-it-works — 5-step buyer-agent onboarding (machine twin /how-it-works.json).\nTrust surfaces: /terms.md /faq.md /privacy.md /tip.md /.well-known/security.txt /playground.\nService catalog: GET /catalog — tiered HTML catalog of all fleet x402 endpoints grouped by price (Penny Cluster / Value Band / Pro / Flagship) with capability tags; machine variant GET /catalog.json.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.\nShareable pay links: GET /buy — one HTML page + embedded x402 PaymentRequirements per service (index at /buy, machine variant /buy?format=json).`);
+    res.type("text/plain").send(`${serviceInfo.title}\n${serviceInfo.description}\nPaid endpoints (x402, USDC on Base eip155:8453, pay-per-call, no API key):\n${lines.join("\n")}\nEvery curated bundle above is priced strictly below the sum of its live per-call parts (see /pricing.md).\nTry before you pay: GET /sample — free synthetic bundle-compose demo, exact paid-response shape, no payment and no 402 challenge.\nTo call: send without payment, read 402 PAYMENT-REQUIRED header, sign USDC transferWithAuthorization, re-send with PAYMENT-SIGNATURE header.\nMachine contract: /openapi.json and /.well-known/x402.\nHow it works: GET /how-it-works — 5-step buyer-agent onboarding (machine twin /how-it-works.json).\nTrust surfaces: /terms.md /faq.md /privacy.md /tip.md /.well-known/security.txt /playground.\nService catalog: GET /catalog — tiered HTML catalog of all fleet x402 endpoints grouped by price (Penny Cluster / Value Band / Pro / Flagship) with capability tags; machine variant GET /catalog.json. Interactive explorer: GET /explore — filter by tag, copy curl commands; machine variant GET /explore.json.\nPayment failed? GET /pay-failed (markdown) or /pay-failed?format=json — 30-second recovery recipes for the 4 real x402 failure modes (wrong network, payTo drift, insufficient balance/expired approval, stale price).\nPricing benchmark: GET /benchmarks (JSON; ?format=md) — live-402 fleet price survey vs Coinbase CDP facilitator rates and x402 Bazaar census percentiles.\nShareable pay links: GET /buy — one HTML page + embedded x402 PaymentRequirements per service (index at /buy, machine variant /buy?format=json).`);
   });
 }
 
@@ -1421,7 +1421,7 @@ surfaces (x402 manifest + 402 challenge), cached 300&nbsp;s. Machine variant:
 </section>
 ${cards}
 <footer>Every wall on Base, USDC, no API keys — index at <code>/buy</code>.<br>
-<a href="/buy?format=json">JSON</a> · <a href="/buy/gift">\u{1F381} Gift a wall</a> · <a href="/penny-stack">\u{1F9E9} Penny Stack — cheapest 4 walls</a> · <a href="/catalog.json">Catalog</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
+<a href="/buy?format=json">JSON</a> · <a href="/buy/gift">\u{1F381} Gift a wall</a> · <a href="/penny-stack">\u{1F9E9} Penny Stack — cheapest 4 walls</a> · <a href="/explore">\u{1F50D} Explore</a> · <a href="/catalog.json">Catalog</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.5rem"></a></footer>
 </body></html>`;
 }
 
@@ -1850,12 +1850,184 @@ app.get("/buy/:slug", async (req, res) => {
               }
 
               app.get("/catalog", async (_req, res) => {
-                const walls = await buildBuyIndex();
-                res.type("text/html; charset=utf-8").send(renderCatalogHtml(walls));
-              });
+                              const walls = await buildBuyIndex();
+                              res.type("text/html; charset=utf-8").send(renderCatalogHtml(walls));
+                            });
 
-              // ---------------------------------------------------------------------------
-            // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
+                            // EXEC-112 — GET /explore: interactive fleet catalog with tag filters and copy-curl buttons
+                            // ───────────────────────────────────────────────────────────────────────────
+                            function renderExploreHtml(walls) {
+                              const allItems = walls.flatMap((w) => w.items);
+                              const tiered = {};
+                              for (const t of CATALOG_TIERS) tiered[t.id] = [];
+                              for (const i of allItems) {
+                                const tier = priceTier(i.price_usdc);
+                                if (tiered[tier]) tiered[tier].push(i);
+                              }
+                              // collect unique tags across all items
+                              const allTags = [...new Set(allItems.flatMap(i => itemTags(i.slug)))].sort();
+                              const tierHtml = CATALOG_TIERS.map((t) => {
+                                const items = tiered[t.id] || [];
+                                if (items.length === 0) return "";
+                                const cards = items.map((i) => {
+                                  const price = i.amount_micro ? usdFromMicro(i.amount_micro) : "—";
+                                  const priceLabel = "$" + price + " USDC";
+                                  const ep = (i.method || "POST") + " " + (i.endpoint_url || "");
+                                  const tags = itemTags(i.slug).map((tg) => `<span class="e-tag" data-tag="${escHtml(tg)}">${escHtml(tg)}</span>`).join("");
+                                  const curlCmd = `curl -s -o /dev/null -w '%{http_code}' -X ${i.method || "POST"} "${i.endpoint_url || ("https://" + i.host + i.endpoint)}" -H "Content-Type: application/json" -d '{"_preview":true}'`;
+                                  const priceVal = i.amount_micro ? Number(usdFromMicro(i.amount_micro)) : 0;
+                                  return `<div class="e-card" data-tags="${itemTags(i.slug).map(escHtml).join(",")}" data-tier="${escHtml(t.id)}">
+                        <h3><a href="/buy/${escHtml(i.slug)}">${escHtml(i.slug)}</a></h3>
+                        <p class="e-tags">${tags} <span class="e-tier-badge e-tier-${escHtml(t.id)}">${escHtml(t.label)}</span></p>
+                        <p class="e-desc">${escHtml(String(i.description || "").slice(0, 200))}</p>
+                        <p class="e-price">${escHtml(priceLabel)} · ${escHtml(i.host_name || "")}</p>
+                        <p class="e-ep"><code>${escHtml(ep)}</code></p>
+                        <button class="e-curl-btn" data-curl="${escHtml(curlCmd)}" onclick="toggleCurl(this)">Copy curl</button>
+                        <pre class="e-curl-box" style="display:none">${escHtml(curlCmd)}</pre>
+                        <a href="/buy/${escHtml(i.slug)}" class="e-btn">Buy — ${escHtml(price)} USDC</a>
+                      </div>`;
+                                }).join("\n");
+                                const tDesc = t.desc ? `<p class="e-tier-desc">${escHtml(t.desc)}</p>` : "";
+                                return `<div class="e-tier" data-tier="${escHtml(t.id)}">
+                        <h2 class="e-tier-h">${escHtml(t.label)}</h2>
+                        ${tDesc}
+                        ${cards}
+                      </div>`;
+                              }).join("\n");
+                              const tagBtns = allTags.map(tg =>
+                                `<button class="e-filter-btn" data-tag="${escHtml(tg)}" onclick="toggleTag('${escHtml(tg)}')">${escHtml(tg)}</button>`
+                              ).join("\n          ");
+                              return `<!doctype html>
+                      <html lang="en"><head><meta charset="utf-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1">
+                      <title>Explore — RAE Fleet interactive service catalog</title>
+                      <meta name="description" content="Interactive catalog: filter 32+ x402 endpoints by capability tag, tier, and copy curl commands. USDC on Base, no API keys.">
+                      <style>body{font-family:system-ui,sans-serif;max-width:1024px;margin:2rem auto;padding:0 1rem;color:#111;line-height:1.5}
+                      .e-tier{margin:1.5rem 0;padding:1px 0}
+                      .e-tier-h{font-size:1.5rem;margin:1.5rem 0 .3rem;border-bottom:2px solid #ddd;padding-bottom:.3rem}
+                      .e-tier-desc{color:#555;margin:.3rem 0 .8rem;font-size:.95rem}
+                      .e-card{border:1px solid #ddd;border-radius:10px;padding:.9rem 1.1rem;margin:.6rem 0;transition:opacity .2s}
+                      .e-card.hidden{display:none}
+                      .e-card h3{margin:0 0 .3rem;font-size:1.05rem}
+                      .e-card h3 a{color:#111;text-decoration:none}
+                      .e-card h3 a:hover{text-decoration:underline}
+                      .e-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin:.2rem 0;align-items:center}
+                      .e-tag{display:inline-block;background:#eef;border-radius:4px;padding:.1rem .5rem;font-size:.75rem;color:#448;cursor:pointer}
+                      .e-tag:hover{background:#dde}
+                      .e-tier-badge{display:inline-block;border-radius:4px;padding:.1rem .5rem;font-size:.7rem;color:#fff;margin-left:.3rem}
+                      .e-tier-penny-cluster{background:#0a7}
+                      .e-tier-value-band{background:#07a}
+                      .e-tier-pro{background:#74a}
+                      .e-tier-flagship{background:#a37}
+                      .e-desc{color:#444;margin:.2rem 0;font-size:.9rem}
+                      .e-price{font-weight:600;margin:.2rem 0;color:#065;font-size:.95rem}
+                      .e-ep{font-size:.8rem;color:#666;margin:.3rem 0;word-break:break-all;font-family:ui-monospace,monospace}
+                      .e-btn{display:inline-block;padding:.35rem .9rem;background:#0d7;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.88rem;margin-top:.3rem}
+                      .e-btn:hover{background:#0b5}
+                      .e-curl-btn{display:inline-block;padding:.25rem .6rem;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:.78rem;color:#333;margin-top:.3rem}
+                      .e-curl-btn:hover{background:#e0e0e0}
+                      .e-curl-box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:.6rem;font-size:.78rem;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:.3rem 0;font-family:ui-monospace,monospace;color:#222}
+                      .filter-bar{background:#f8faff;border:1px solid #dde;border-radius:10px;padding:.8rem 1rem;margin:0 0 1.2rem}
+                      .filter-bar .e-filter-btn{display:inline-block;margin:.2rem;padding:.3rem .65rem;border:1px solid #bbc;border-radius:6px;background:#fff;cursor:pointer;font-size:.82rem;color:#336}
+                      .filter-bar .e-filter-btn:hover{background:#eef}
+                      .filter-bar .e-filter-btn.active{background:#336;color:#fff;border-color:#224}
+                      .filter-bar .e-clear-btn{display:inline-block;margin:.2rem;padding:.3rem .65rem;border:1px solid #ccc;border-radius:6px;background:#fafafa;cursor:pointer;font-size:.82rem;color:#666}
+                      .filter-bar .e-clear-btn:hover{background:#eee}
+                      .hero{background:#f0fdf5;border-radius:12px;padding:1.2rem 1.5rem;margin:0 0 1.5rem}
+                      .hero h1{margin:0 0 .3rem;font-size:1.8rem}
+                      .hero p{color:#444;margin:.4rem 0}
+                      .hero .e-stats{font-size:.9rem;color:#666}
+                      footer{margin-top:2rem;color:#555;font-size:.85rem}
+                      .no-match{display:none;text-align:center;padding:2rem;color:#888;font-style:italic}
+                      </style>
+                      </head><body>
+                      <div class="hero">
+                      <h1>Explore RAE Fleet Services</h1>
+                      <p>Interactive catalog — click a tag to filter, use <strong>Copy curl</strong> to grab a ready-made request.</p>
+                      <p class="e-stats">${allItems.length} endpoints across ${walls.length} walls · Network: eip155:8453 · USDC: ${MAINNET_USDC}</p>
+                      </div>
+                      <div class="filter-bar" id="filterBar">
+                      <strong>Filter by tag:</strong><br>
+                      ${tagBtns}
+                      <button class="e-clear-btn" onclick="clearFilter()">Clear</button>
+                      </div>
+                      ${tierHtml}
+                      <div class="no-match" id="noMatch">No endpoints match the selected tag.</div>
+                      <footer>Prices crawled live from each wall's live 402 challenges. Use the tag filter to find the right capability.<br>
+                      <a href="/catalog">Catalog (static)</a> · <a href="/buy">Browse by wall</a> · <a href="/catalog.json">JSON catalog</a> · <a href="/penny-stack">Penny stack</a> · <a href="https://rae-fleet-router.fly.dev"><img src="/badge.svg" alt="x402 · paid in USDC on Base — RAEN" height="28" style="vertical-align:middle;margin-top:.3rem"></a></footer>
+                      <script>
+                      var activeTag = null;
+                      function toggleTag(tag) {
+                        var btns = document.querySelectorAll('.e-filter-btn');
+                        if (activeTag === tag) { clearFilter(); return; }
+                        activeTag = tag;
+                        btns.forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-tag') === tag); });
+                        applyFilter();
+                      }
+                      function clearFilter() {
+                        activeTag = null;
+                        document.querySelectorAll('.e-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+                        applyFilter();
+                      }
+                      function applyFilter() {
+                        var cards = document.querySelectorAll('.e-card');
+                        var matchCount = 0;
+                        cards.forEach(function(c) {
+                          if (!activeTag) { c.classList.remove('hidden'); matchCount++; return; }
+                          var tags = (c.getAttribute('data-tags') || '').split(',');
+                          if (tags.indexOf(activeTag) !== -1) { c.classList.remove('hidden'); matchCount++; }
+                          else { c.classList.add('hidden'); }
+                        });
+                        document.getElementById('noMatch').style.display = matchCount === 0 ? 'block' : 'none';
+                      }
+                      function toggleCurl(btn) {
+                        var box = btn.nextElementSibling;
+                        if (box.style.display === 'none' || !box.style.display) {
+                          box.style.display = 'block';
+                          btn.textContent = 'Hide curl';
+                          // copy to clipboard
+                          var ta = document.createElement('textarea');
+                          ta.value = btn.getAttribute('data-curl');
+                          ta.style.position = 'fixed'; ta.style.left = '-9999px';
+                          document.body.appendChild(ta);
+                          try { ta.select(); document.execCommand('copy'); } catch(e) {}
+                          document.body.removeChild(ta);
+                        } else {
+                          box.style.display = 'none';
+                          btn.textContent = 'Copy curl';
+                        }
+                      }
+                      // keyboard shortcut: Escape clears filter
+                      document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && activeTag) clearFilter(); });
+                      </script>
+                      </body></html>`;
+                            }
+
+                            app.get("/explore", async (_req, res) => {
+                              const walls = await buildBuyIndex();
+                              res.type("text/html; charset=utf-8").send(renderExploreHtml(walls));
+                            });
+
+                            app.get("/explore.json", async (_req, res) => {
+                              const walls = await buildBuyIndex();
+                              const wallItems = walls.flatMap((w) => w.items || []).filter(i => i.slug);
+                              const items = wallItems.map(i => ({
+                                slug: i.slug, host: i.host, host_name: i.host_name,
+                                endpoint: i.endpoint, method: i.method,
+                                price_usdc: i.price_usdc, tier: priceTier(i.price_usdc),
+                                tags: itemTags(i.slug),
+                                description: String(i.description || "").slice(0, 200),
+                                endpoint_url: i.endpoint_url,
+                                curl: `curl -s -X ${i.method || "POST"} "${i.endpoint_url || ("https://" + i.host + i.endpoint)}" -H "Content-Type: application/json" -d '{"_preview":true}'`,
+                                buy_url: "https://rae-fleet-router.fly.dev/buy/" + i.slug,
+                              }));
+                              res.json({ ok: true, free: true, service: "rae-fleet-router", page: "/explore.json",
+                                generated_utc: new Date().toISOString(),
+                                count: items.length, tiers: CATALOG_TIERS, items });
+                            });
+
+                            // ---------------------------------------------------------------------------
+                          // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
 
         // ---------------------------------------------------------------------------
         // EXEC-102 / EXEC-103 — free guided picker (/recommend, /recommend.json) and
