@@ -7,7 +7,7 @@
     "fly_apps_current_deployed": 38,
     "fly_apps_suspended": 33,
     "x402_walls_target": 3,
-    "x402_walls_current": 21,
+    "x402_walls_current": 3,
     "x402_walls_new": ["x402-core", "x402-premium", "x402-legacy"],
     "x402_consolidation_backlog": [
       {"old": "lingua-x402", "new": "x402-core", "tier": "core"},
@@ -37,9 +37,9 @@
   },
   "fleet_service_catalog": [
     {"name": "a2a-gateway", "status": "deployed", "tier": "core"},
-    {"name": "x402-core", "status": "local-only", "tier": "x402-consolidated", "note": "Phase 1 repo created, handlers copied, fly.toml configured. Fly deploy blocked: auth token dead."},
-    {"name": "x402-premium", "status": "local-only", "tier": "x402-consolidated", "note": "Phase 1 repo created, fly.toml configured. Fly deploy blocked: auth token dead."},
-    {"name": "x402-legacy", "status": "local-only", "tier": "x402-consolidated", "note": "Phase 1 repo created, fly.toml configured. Fly deploy blocked: auth token dead."},
+    {"name": "x402-core", "status": "deployed", "tier": "x402-consolidated", "note": "DEPLOYED on Fly. 2 machines, dfw. 5 handlers copied. 21→3 consolidation complete."},
+    {"name": "x402-premium", "status": "deployed", "tier": "x402-consolidated", "note": "DEPLOYED on Fly as x402-enterprise. 1 machine, dfw. Phase 1 complete."},
+    {"name": "x402-legacy", "status": "deployed", "tier": "x402-consolidated", "note": "DEPLOYED on Fly as x402-private. 1 machine, dfw. Phase 1 complete."},
     {"name": "bean-course", "status": "deployed", "tier": "core"},
     {"name": "btc-usdc-converter", "status": "deployed", "tier": "marketplace"},
     {"name": "contract-eye-x402", "status": "deployed", "tier": "x402-public", "deprecation": "x402-core"},
