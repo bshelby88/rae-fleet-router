@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAE x402 Fleet — Live Status</title>
+<style>
+:root { --bg: #0a0e14; --card: #131720; --border: #1e2a3a; --fg: #e6e6e6; --muted: #7d8590; --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: -apple-system, "Segoe UI", sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: 0 auto; }
+h1 { font-size: 1.8em; margin-bottom: 0.3em; color: var(--accent); }
+h2 { font-size: 1.3em; margin: 1.5em 0 0.5em; color: var(--fg); border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.meta { color: var(--muted); font-size: 0.85em; margin-bottom: 1.5em; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 2em; }
+.stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.stat .num { font-size: 1.8em; font-weight: 700; color: var(--accent); }
+.stat .lbl { font-size: 0.8em; color: var(--muted); text-transform: uppercase; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 1.5em; }
+th { text-align: left; padding: 10px; background: var(--card); color: var(--muted); font-size: 0.8em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+td { padding: 10px; border-bottom: 1px solid var(--border); }
+td .status-yes { color: var(--green); } td .status-no { color: var(--red); }
+td .price { color: var(--accent); font-weight: 600; font-family: monospace; }
+td .ep { font-size: 0.8em; color: var(--muted); font-family: monospace; }
+a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+.wallet-addr { font-family: monospace; font-size: 0.8em; color: var(--muted); }
+.wallet-usdc { color: var(--green); font-weight: 600; }
+.footer { margin-top: 2em; padding-top: 1em; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8em; }
+.note { background: #1a1f2e; border-left: 3px solid var(--yellow); padding: 12px; margin: 1em 0; border-radius: 0 4px 4px 0; font-size: 0.9em; }
+.note strong { color: var(--yellow); }
+.curl-block { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 0.85em; overflow-x: auto; color: var(--muted); white-space: pre; }
+</style>
+</head>
+<body>
+<h1>RAE x402 Fleet — Live Status</h1>
+<p class="meta">Royal Agentic Enterprises · Base USDC · Chain eip155:8453 · Generated 2026-09-26 17:58 UTC</p>
+
+<div class="summary">
+<div class="stat"><div class="num">9/9</div><div class="lbl">Services Healthy</div></div>
+<div class="stat"><div class="num">14</div><div class="lbl">Paid Endpoints</div></div>
+<div class="stat"><div class="num">$160.89</div><div class="lbl">Fleet USDC</div></div>
+<div class="stat"><div class="num">$0.00</div><div class="lbl">Revenue (Honest)</div></div>
+</div>
+
+<div class="note">
+<strong>$0 Revenue — Honest:</strong> Zero external customers have paid any x402 endpoint. Internal fleet transfers are <code>VALIDATION_ONLY</code> — operational evidence, NOT customer revenue. Revenue is recognized only when all 10 first-sale conditions pass.
+</div>
+
+<h2>Fleet Services</h2>
+<table>
+<thead><tr><th>#</th><th>Service</th><th>Description</th><th>Price</th><th>Endpoints</th><th>Status</th><th>Links</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><strong>sentry-forge</strong></td><td>Consumer-debt dispute pack (8 files)</td><td class="price">$0.50</td><td><span class="ep">/api/dispute-pack</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://sentry-forge-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://sentry-forge-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>2</td><td><strong>dispute-forge</strong></td><td>FCRA dispute letter + SVG certificate</td><td class="price">$0.75</td><td><span class="ep">/api/dispute-pack</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://dispute-forge-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://dispute-forge-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>3</td><td><strong>vault-pro</strong></td><td>Project & agent scaffolding</td><td class="price">$0.05</td><td><span class="ep">/api/scaffold-project</span><br><span class="ep">/api/scaffold-agent</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://vault-pro-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://vault-pro-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>4</td><td><strong>power-pack</strong></td><td>Email scoring via Claude Haiku 4.5</td><td class="price">$0.01</td><td><span class="ep">/api/score-email</span></td><td><span class="status-no">✅ Down</span></td><td><a href="https://power-pack-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://power-pack-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>5</td><td><strong>nanobanana</strong></td><td>Image generation & editing</td><td class="price">$0.01</td><td><span class="ep">/api/generate-image</span><br><span class="ep">/api/edit-image</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://nanobanana-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://nanobanana-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>6</td><td><strong>royal-ruby</strong></td><td>State-by-state legal lookup</td><td class="price">$0.25</td><td><span class="ep">/api/law-lookup</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://royal-ruby-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://royal-ruby-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>7</td><td><strong>suprapack</strong></td><td>Skill discovery</td><td class="price">$0.03</td><td><span class="ep">/api/find-skill</span><br><span class="ep">/api/get-skill</span><br><span class="ep">/api/list-top</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://suprapack-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://suprapack-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>8</td><td><strong>tradingagents</strong></td><td>Crypto ticker + arbitrage analysis</td><td class="price">$0.03</td><td><span class="ep">/api/analyze-ticker</span><br><span class="ep">/api/analyze-arbitrage</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://tradingagents-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://tradingagents-x402.fly.dev/openapi.json">openapi</a></td></tr>
+<tr><td>9</td><td><strong>dispatch</strong></td><td>Aggregator / intent routing</td><td class="price">$0.50</td><td><span class="ep">/dispatch</span></td><td><span class="status-yes">✅ Live</span></td><td><a href="https://dispatch-x402.fly.dev/.well-known/x402.json">x402</a> · <a href="https://dispatch-x402.fly.dev/openapi.json">openapi</a></td></tr>
+</tbody></table>
+<h2>Fleet Wallets (eth_call, 3-RPC consensus)</h2>
+<table>
+<thead><tr><th>Wallet</th><th>Label</th><th>USDC</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td class="wallet-addr">0xfBC0eb78...192240</td><td>agentcash (payer)</td><td class="wallet-usdc">2.332133</td><td>On-disk signer (payer)</td></tr>
+<tr><td class="wallet-addr">0x7861db4e...0f1393</td><td>treasury / payTo</td><td class="wallet-usdc">57.437345</td><td>Canonical treasury / payTo</td></tr>
+<tr><td class="wallet-addr">0x9e6a0ce7...b71770</td><td>CDP smart wallet</td><td class="wallet-usdc">74.424698</td><td>CDP custody</td></tr>
+<tr><td class="wallet-addr">0x9b8a2786...36f72f</td><td>legacy treasury</td><td class="wallet-usdc">26.696473</td><td>Legacy treasury (vault USDC_RECEIVER)</td></tr>
+</tbody></table>
+
+<h2>How to Call a Paid Endpoint</h2>
+<div class="curl-block">curl -i https://sentry-forge-x402.fly.dev/api/dispute-pack \
+  -H "Content-Type: application/json" \
+  -d '{"customer_name":"Test","state":"VA","contract_type":"credit_card","default_date":"2024-09-15","alleged_balance":1000,"narrative":"Test","collector_letter":"x"}'
+# → HTTP 402 (payment required) — pay USDC on Base to 0xfBC0eb78...2240 via x402</div>
+
+<h2>First-Sale Doctrine (10 Conditions)</h2>
+<p style="color:var(--muted);font-size:0.9em">Revenue is quarantined until ALL 10 pass. Any internal transfer = <code>VALIDATION_ONLY</code>.</p>
+<ol style="color:var(--muted);font-size:0.85em;padding-left:1.5em">
+<li>Customer named and known personally</li>
+<li>Payment > dust (>$0.01 USDC on-chain)</li>
+<li>From external wallet → treasury/payTo</li>
+<li>Facilitator settlement log records it (tx hash + timestamp)</li>
+<li>Direction verified (customer→seller, not circular)</li>
+<li>tx hash maps to facilitator settlement log entry</li>
+<li>Canonical source = settlement log (legal ownership)</li>
+<li>≥10 confirmations on Base + gas-track validates</li>
+<li>No reversal, clawback, or stale-settlement flag</li>
+<li>Settlement record + chain log agree on all fields</li>
+</ol>
+
+<div class="footer">
+<p>RAEN Revenue Engine v3.0 · <a href="https://github.com/bshelby88">bshelby88</a> · Canonical money: eth_call balanceOf on USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 across ≥2 RPCs</p>
+<p>Never trust Blockscout REST for balances · Internal transfers ≠ revenue · $0 revenue until first external customer</p>
+</div>
+
+<div style="margin:20px 0;padding:15px;border:1px solid var(--border);border-radius:8px;background:var(--card)">
+  <h3>⚡ EIP-3009 On-Chain Settlements (Verified)</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px">TX Hash</td>
+      <td style="padding:6px">Amount</td>
+      <td style="padding:6px">Gas</td>
+      <td style="padding:6px">Status</td>
+      <td style="padding:6px">Basescan</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px;font-family:monospace">0xe7af9bb7...afb4</td>
+      <td style="padding:6px">$0.02 USDC</td>
+      <td style="padding:6px">83,216 gas</td>
+      <td style="padding:6px">✅ SUCCESS</td>
+      <td style="padding:6px"><a href="https://basescan.org/tx/0xe7af9bb7d66a77238d38b6ff866efaf3464abdbef8195f4cf3f85589b073afb4" target="_blank">View →</a></td>
+    </tr>
+    <tr>
+      <td style="padding:6px;font-family:monospace">0x25b3f2b7...9c88</td>
+      <td style="padding:6px">$0.02 USDC</td>
+      <td style="padding:6px">83,208 gas</td>
+      <td style="padding:6px">✅ SUCCESS</td>
+      <td style="padding:6px"><a href="https://basescan.org/tx/0x25b3f2b703a2af7b4474aea1ee7b04b71bdb97cc11210f386bae7e72124d9c88" target="_blank">View →</a></td>
+    </tr>
+  </table>
+  <p style="margin:8px 0 0 0;font-size:12px;color:var(--muted-foreground)">Settled via direct EIP-3009 transferWithAuthorization — no facilitator or CDP credentials needed.</p>
+</div>
+
+<div style="margin:20px 0;padding:15px;border:1px solid var(--border);border-radius:8px;background:var(--card)">
+  <h3>🫙 Tipjar (Live on Fly)</h3>
+  <p>URL: <a href="https://rae-tipjar.fly.dev" target="_blank">https://rae-tipjar.fly.dev</a></p>
+  <p>Price: $0.01 USDC | Pay-to: 0xfBC0...2240 | Network: Base (eip155:8453)</p>
+  <p style="font-size:12px;color:var(--muted-foreground)">Persistent deployment on Fly.io — survives laptop sleep.</p>
+</div>
+
+</body>
+</html>
