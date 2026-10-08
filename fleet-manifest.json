@@ -1,0 +1,403 @@
+{
+  "generated_at": "2026-10-08T13:49:59Z",
+  "fleet_service_catalog": [
+    {
+      "name": "a2a-gateway",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "bean-course",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "briefsnap-x402",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "bshelby-miner",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "btc-usdc-converter",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "contract-eye-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "cred-vault",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "dispatch-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "dispatch-x402-7q2mqg",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "dispute-forge-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "escrow-x402",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "first-sale",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "fleet-aggregator",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "fleet-litellm",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "fleet-monitoring",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "fly-builder-lingering-snowflake-8122",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "forge-engine",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "franklin-agent",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "hashrate-marketplace",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "juanterry-agent",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "lingua-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "mining-marketplace",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "nanobanana-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "nft-alpha-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "nimbus-agent",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "openrouter-multimodal",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "opensea-data-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "power-pack-x402",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "rae-a2a-adapter-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "rae-facilitator",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "rae-fleet-router",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "rae-kernel",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "rae-kernel-staging",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "rae-monetization-gateway",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "rae-tipjar",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "raen-facilitator",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "raen-health-monitor",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "raen-library-agent",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "raen-portfolio-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "raen-qdrant",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "raen-qdrant-sunlit-echo-3686",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "revenue-optimizer",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic-bk7-2q",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic-e8ur-g",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic-enterprises",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "royal-agentic-enterprises-i9pl2a",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "royal-agentic-enterprises-iaucug",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "royal-agentic-ft-q8g",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic-i0bimq",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic-l3p-aa",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-agentic-nxcbeg",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-feel-x402",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-gateway-x402",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-gateway-x402-0c2o9g",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-ruby",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "royal-ruby-live",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-ruby-live-agfxnw",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "royal-ruby-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "royal-sailing",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "scrubber-cron",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "sentry-forge-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "shelf-liquidator",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "staci-core",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "staci-monitor",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "staci-nft-oracle",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "staci-tradingagents",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "suprapack-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "tiffany-agent",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "tiffany-creative",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "tiffany-dashboard",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "tiffany-miner",
+      "status": "suspended",
+      "deployed": true
+    },
+    {
+      "name": "tiffany-poller",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "tmp-digest-probe-2",
+      "status": "pending",
+      "deployed": false
+    },
+    {
+      "name": "tradingagents-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "treasury-recovery",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "vault-pro-x402",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "x402-analytics",
+      "status": "deployed",
+      "deployed": true
+    },
+    {
+      "name": "x402-glm",
+      "status": "deployed",
+      "deployed": true
+    }
+  ],
+  "canonical_treasury": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
+  "canonical_payto": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
+  "x402_manifest_version": 2
+}

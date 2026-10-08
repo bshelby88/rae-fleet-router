@@ -1,0 +1,229 @@
+{
+  "version": "2.0.0",
+  "generated_at": "2026-09-13T21:00:25Z",
+  "operator": "Royal Agentic Enterprises",
+  "network": "eip155:8453",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "payTo_canonical": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+  "payTo_note": "CORRECTED 2026-09-13: all 9 live services advertise payTo=0xfBC0\u2026240. The earlier catalog used 0x7861\u2026f1393 which the services no longer reference. Resolved at session ID deleg_5affbfeb (subagent discovery log).",
+  "scheme": "exact",
+  "resources": [
+    {
+      "type": "x402-resource",
+      "service": "sentry-forge",
+      "description": "8-file consumer-debt dispute pack (collector letter, OC letter, CFPB complaints, bureau disputes, court records search, action checklist, evidence inventory)",
+      "endpoints": [
+        {
+          "path": "/api/dispute-pack",
+          "method": "POST",
+          "price": "$0.50",
+          "priceAtomic": "500000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://sentry-forge-x402.fly.dev/openapi.json",
+          "discovery": "https://sentry-forge-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "dispute-forge",
+      "description": "FCRA-compliant dispute letter + SVG certificate",
+      "endpoints": [
+        {
+          "path": "/api/dispute-pack",
+          "method": "POST",
+          "price": "$0.75",
+          "priceAtomic": "750000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://dispute-forge-x402.fly.dev/openapi.json",
+          "discovery": "https://dispute-forge-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "vault-pro",
+      "description": "Project & agent scaffolding",
+      "endpoints": [
+        {
+          "path": "/api/scaffold-project",
+          "method": "POST",
+          "price": "$0.05",
+          "priceAtomic": "50000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://vault-pro-x402.fly.dev/openapi.json",
+          "discovery": "https://vault-pro-x402.fly.dev/.well-known/x402.json"
+        },
+        {
+          "path": "/api/scaffold-agent",
+          "method": "POST",
+          "price": "$0.05",
+          "priceAtomic": "50000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://vault-pro-x402.fly.dev/openapi.json",
+          "discovery": "https://vault-pro-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "power-pack",
+      "description": "Email scoring via Claude Haiku 4.5 with senior-copywriter system prompt",
+      "endpoints": [
+        {
+          "path": "/api/score-email",
+          "method": "POST",
+          "price": "$0.01",
+          "priceAtomic": "10000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://power-pack-x402.fly.dev/openapi.json",
+          "discovery": "https://power-pack-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "nanobanana",
+      "description": "Image generation & editing",
+      "endpoints": [
+        {
+          "path": "/api/generate-image",
+          "method": "POST",
+          "price": "$0.01",
+          "priceAtomic": "10000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://nanobanana-x402.fly.dev/openapi.json",
+          "discovery": "https://nanobanana-x402.fly.dev/.well-known/x402.json"
+        },
+        {
+          "path": "/api/edit-image",
+          "method": "POST",
+          "price": "$0.01",
+          "priceAtomic": "10000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://nanobanana-x402.fly.dev/openapi.json",
+          "discovery": "https://nanobanana-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "royal-ruby",
+      "description": "State-by-state legal lookup (FCRA, FDCPA, TILA, UDAP, statutes of limitations)",
+      "endpoints": [
+        {
+          "path": "/api/law-lookup",
+          "method": "POST",
+          "price": "$0.25",
+          "priceAtomic": "250000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://royal-ruby-x402.fly.dev/openapi.json",
+          "discovery": "https://royal-ruby-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "suprapack",
+      "description": "Hermes skill discovery",
+      "endpoints": [
+        {
+          "path": "/api/find-skill",
+          "method": "POST",
+          "price": "$0.03",
+          "priceAtomic": "30000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://suprapack-x402.fly.dev/openapi.json",
+          "discovery": "https://suprapack-x402.fly.dev/.well-known/x402.json"
+        },
+        {
+          "path": "/api/get-skill",
+          "method": "POST",
+          "price": "$0.03",
+          "priceAtomic": "30000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://suprapack-x402.fly.dev/openapi.json",
+          "discovery": "https://suprapack-x402.fly.dev/.well-known/x402.json"
+        },
+        {
+          "path": "/api/list-top",
+          "method": "POST",
+          "price": "$0.03",
+          "priceAtomic": "30000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://suprapack-x402.fly.dev/openapi.json",
+          "discovery": "https://suprapack-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "tradingagents",
+      "description": "Crypto ticker + arbitrage analysis (synthetic-degraded today)",
+      "endpoints": [
+        {
+          "path": "/api/analyze-ticker",
+          "method": "POST",
+          "price": "$0.03",
+          "priceAtomic": "30000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://tradingagents-x402.fly.dev/openapi.json",
+          "discovery": "https://tradingagents-x402.fly.dev/.well-known/x402.json"
+        },
+        {
+          "path": "/api/analyze-arbitrage",
+          "method": "POST",
+          "price": "$0.03",
+          "priceAtomic": "30000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://tradingagents-x402.fly.dev/openapi.json",
+          "discovery": "https://tradingagents-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    },
+    {
+      "type": "x402-resource",
+      "service": "dispatch",
+      "description": "Aggregator / intent routing",
+      "endpoints": [
+        {
+          "path": "/dispatch",
+          "method": "POST",
+          "price": "$0.50",
+          "priceAtomic": "500000",
+          "payTo": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
+          "network": "eip155:8453",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "openapi": "https://dispatch-x402.fly.dev/openapi.json",
+          "discovery": "https://dispatch-x402.fly.dev/.well-known/x402.json"
+        }
+      ]
+    }
+  ]
+}
