@@ -291,6 +291,22 @@ app.get("/auth/coinbase/status", (req, res) => {
   });
 });
 
+app.get("/", (_req, res) =>
+  res.json({
+    service: "RAE Fleet Router",
+    operator: "Royal Agentic Enterprises",
+    description: "Agent-to-agent x402 payment router and fleet service catalog.",
+    endpoints: {
+      health: "/health",
+      catalog: "/catalog",
+      explore: "/explore",
+      sample: "/sample",
+      manifest: "/.well-known/x402.json",
+    },
+    contact: "jadedfocus@gmail.com",
+  }),
+);
+
 const BUNDLE_INPUT_SCHEMA = {
   type: "object",
   properties: {
