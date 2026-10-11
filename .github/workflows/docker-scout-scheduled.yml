@@ -11,13 +11,27 @@ on:
 permissions:
   contents: read
 
+env:
+  DOCKER_USER: ${{ vars.DOCKER_USER || 'rogueshelby' }}
+  SCOUT_IMAGE: ${{ vars.DOCKER_USER || 'rogueshelby' }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:latest
+
 jobs:
   scout-refresh:
     runs-on: ubuntu-latest
     steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PAT }}
+
       - name: Scout quickview
         uses: docker/scout-action@481412c8b8de36d0f79e85aa382c60397466feb6
         with:
           command: quickview
-          image: ${{ vars.DOCKER_USER || 'rogueshelby' }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:latest
-          organization: ${{ vars.DOCKER_USER || 'rogueshelby' }}
+          image: ${{ env.SCOUT_IMAGE }}
+          organization: ${{ env.DOCKER_USER }}
+          summary: true
+          format: json
+          dockerhub-user: ${{ env.DOCKER_USER }}
+          dockerhub-password: ${{ secrets.DOCKER_PAT }}
