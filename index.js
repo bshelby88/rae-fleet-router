@@ -330,7 +330,7 @@ const BUNDLE_OUTPUT_SCHEMA = {
 const bundleRoute = {
   accepts: { scheme: "exact", price: "$0.10", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
   serviceName: SERVICE_NAME,
-  description: "Compose multiple RAE fleet services into one paid bundle. Given a topic, calls nft-alpha (NFT market signals), power-pack (outreach email scoring), and tradingagents (market consensus) via x402, assembles results. Demonstrates agent-to-agent economy.",
+  description: "Compose multiple RAE fleet services into one paid bundle by topic on Base. POST {topic}, receive assembled results from nft-alpha, power-pack, and tradingagents as JSON. $0.10 per call, Base USDC x402.",
   mimeType: "application/json",
   requestSchema: BUNDLE_INPUT_SCHEMA,
   responseSchema: BUNDLE_OUTPUT_SCHEMA,
@@ -359,19 +359,19 @@ const BUNDLE_LADDER = [
   {
     id: "market-starter", price: "$0.02",
     title: "Market Starter",
-    desc: "OpenSea raw collection data (floor/listings/offers/traits) + real-time NFT market signals for one collection.",
+    desc: "Get OpenSea raw collection data plus real-time NFT market signals for one collection in a single call. POST {slug/topic}, receive floor/listings/offers/traits + signals as JSON. $0.02 per call, Base USDC x402.",
     parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02]],
   },
   {
     id: "market-intel-trio", price: "$0.05",
     title: "Market Intel Trio",
-    desc: "The flagship starter trio: opensea-data + nft-alpha + suprapack (matched Claude Code skills) in one call.",
+    desc: "Get the flagship starter trio in one call: opensea-data + nft-alpha + suprapack matched skills. POST {slug/topic}, receive data, signals, and skill matches as JSON. $0.05 per call, Base USDC x402.",
     parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03]],
   },
   {
     id: "full-fleet-sampler", price: "$0.06",
     title: "Full Fleet Sampler",
-    desc: "One call to each of the five sub-$0.03 fleet services: data, signals, skills, image generation, outreach scoring.",
+    desc: "Sample all five sub-$0.03 fleet services in one call: data, signals, skills, image generation, outreach scoring. Receive each service's result as JSON. $0.06 per call, Base USDC x402.",
     parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
   },
 ];
@@ -957,7 +957,7 @@ const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute,
   "POST /api/tip": {
     accepts: { scheme: "exact", price: "$0.01", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
     serviceName: SERVICE_NAME,
-    description: "Keep the Change — round-up gratuity to the fleet treasury. $0.01 floor, $1.00 cap, buyer's choice. A tip purchases goodwill; the response is a receipt only.",
+    description: "Send a round-up gratuity to the RAE fleet treasury. POST desired amount (floor $0.01, cap $1.00), receive a receipt as JSON. A tip purchases goodwill only. Base USDC x402.",
     mimeType: "application/json",
   },
 };
