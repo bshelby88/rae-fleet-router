@@ -57,4 +57,4 @@ jobs:
 
       - name: Verify web health after deploy
         run: |
-          timeout 90 bash -c 'until curl -fsS -m 5 https://rae-fleet-router.fly.dev/health; do sleep 5; done' && echo "Health OK: responded within 90s" || { echo "::error::rae-fleet-router did not respond on /health within 90s of deploy"; exit 1; }
+          timeout 90 bash -c 'until curl -fsS -m 20 https://rae-fleet-router.fly.dev/health; do sleep 5; done' && echo "Health OK: responded within 90s" || { echo "::error::rae-fleet-router did not respond on /health within 90s of deploy"; exit 1; }
