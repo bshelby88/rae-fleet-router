@@ -76,6 +76,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=registry,ref=${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
 
+      # Boot smoke (non-blocking advisory, mirrors Scout continue-on-error):
+      # pull the pushed image and verify it boots. X402_PAY_TO and ROUTER_KEY
+      # are FATAL requirements at boot; ROUTER_KEY uses an anvil test vector
+      # (zero-balance public test key) so no real key is needed to smoke.
+      - name: Boot smoke (non-blocking)
+        if: github.event_name != 'pull_request' && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        run: |
+          IMG="${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
+          echo "boot-smoke image: ${IMG}"
+          docker pull "$IMG" || { echo "::warning::boot smoke: image pull failed"; exit 0; }
+          docker run --rm -d -p 3000:3000 \
+            -e PORT=3000 \
+            -e X402_PAY_TO=0x7861db4efc14a1ed5dd8c96c528a3796560f1393 \
+            -e ROUTER_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+            --name boot-smoke "$IMG"
+          trap 'docker rm -f boot-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 10); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 15 http://localhost:3000/health || true)
+            echo "boot-smoke attempt $i: HTTP ${CODE:-no-response}"
+            if [ "$CODE" = "200" ]; then echo "::notice::boot smoke OK (HTTP 200)"; exit 0; fi
+            sleep 2
+          done
+          echo "---- container logs (tail) ----"
+          docker logs boot-smoke 2>&1 | tail -40 || true
+          echo "::warning::boot smoke: no HTTP 200 from :3000/health within ~60s"
+
       # Docker Scout: CVE scan every build (gate: critical/high)
       - name: Docker Scout CVEs
         if: github.event_name != 'pull_request' && github.event.pull_request.head.repo.fork != true

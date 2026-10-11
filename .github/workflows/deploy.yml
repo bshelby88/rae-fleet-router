@@ -29,6 +29,27 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+      # Boot smoke (blocking): alpine image — build locally and prove the
+      # container boots and serves HTTP before deploying.
+      - name: Boot smoke — image must boot and serve
+        run: |
+          docker build -t rae-fleet-router-smoke .
+          docker run --rm -d -p 3000:3000 \
+            -e PORT=3000 \
+            -e X402_PAY_TO=0x7861db4efc14a1ed5dd8c96c528a3796560f1393 \
+            -e ROUTER_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+            --name rae-boot-smoke rae-fleet-router-smoke
+          trap 'docker rm -f rae-boot-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 15); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 15 http://localhost:3000/health || true)
+            echo "boot-smoke attempt $i: HTTP ${CODE:-no-response}"
+            if [ "$CODE" = "200" ]; then echo "::notice::boot smoke OK (HTTP 200)"; exit 0; fi
+            sleep 2
+          done
+          echo "---- container logs (tail) ----"
+          docker logs rae-boot-smoke 2>&1 | tail -40 || true
+          echo "::error::boot smoke FAILED — no HTTP 200 from :3000/health within ~60s"
+          exit 1
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only
         env:
