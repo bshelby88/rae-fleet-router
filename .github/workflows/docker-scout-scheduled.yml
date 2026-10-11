@@ -25,13 +25,13 @@ jobs:
           username: ${{ env.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PAT }}
 
-      - name: Scout quickview
+      - name: Scout CVE scan
         uses: docker/scout-action@481412c8b8de36d0f79e85aa382c60397466feb6
         with:
-          command: quickview
+          command: cves
           image: ${{ env.SCOUT_IMAGE }}
-          organization: ${{ env.DOCKER_USER }}
+          only-severities: critical,high
+          exit-code: false
           summary: true
-          format: json
           dockerhub-user: ${{ env.DOCKER_USER }}
           dockerhub-password: ${{ secrets.DOCKER_PAT }}
