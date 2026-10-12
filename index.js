@@ -260,10 +260,37 @@ ${rows}
 </html>`;
 }
 
+// Cache + stale-while-revalidate: probing every wall on each request made /health take
+// 8-11 s (cold autostopped walls, 5 s per-probe timeout) and Fly's own check hits this path.
+// Serve the last snapshot immediately, refresh in the background, dedupe concurrent probes.
+const HEALTH_CACHE_TTL_MS = Number(process.env.HEALTH_CACHE_TTL_MS) || 30000;
+let healthSnapshot = null; // { results, generatedUtc, at }
+let healthInflight = null;
+
+function refreshWallHealth() {
+  if (!healthInflight) {
+    healthInflight = Promise.all(BUY_WALLS.map(probeWallHealth))
+      .then((results) => {
+        healthSnapshot = { results, generatedUtc: new Date().toISOString(), at: Date.now() };
+        return healthSnapshot;
+      })
+      .finally(() => { healthInflight = null; });
+  }
+  return healthInflight;
+}
+
+async function getWallHealth() {
+  if (!healthSnapshot) return refreshWallHealth();
+  if (Date.now() - healthSnapshot.at >= HEALTH_CACHE_TTL_MS) refreshWallHealth().catch(() => {});
+  return healthSnapshot;
+}
+
+// Cheap liveness for platform checks (does not probe other walls).
+app.get("/healthz", (_req, res) => res.json({ status: "ok", service: "rae-fleet-router" }));
+
 app.get("/health", async (req, res) => {
   const format = req.query.format || "html";
-  const results = await Promise.all(BUY_WALLS.map(probeWallHealth));
-  const generatedUtc = new Date().toISOString();
+  const { results, generatedUtc } = await getWallHealth();
   if (format === "json") {
     return res.json({
       generated_utc: generatedUtc,
