@@ -310,7 +310,7 @@ app.get("/", (_req, res) =>
 const BUNDLE_INPUT_SCHEMA = {
   type: "object",
   properties: {
-    topic: { type: "string", minLength: 1, description: "Topic/keyword to research (e.g., 'Azuki', 'consumer debt')" },
+    topic: { type: "string", minLength: 1, description: "Topic/keyword to research (e.g., 'Azuki', 'consumer debt')", example: "Azuki" },
     email_subject: { type: "string", minLength: 3, description: "Optional: subject line for outreach scoring" },
     email_body: { type: "string", minLength: 20, description: "Optional: email body for outreach scoring" },
   },
@@ -955,11 +955,21 @@ const PAID_ROUTES = { "POST /api/fleet-bundle": bundleRoute,
   // EXEC-85 / STRAT-68 "Keep the Change" gratuity — $0.01 floor; over-cap
   // authorizations are rejected by the exact-scheme verifier against this price.
   "POST /api/tip": {
-    accepts: { scheme: "exact", price: "$0.01", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
-    serviceName: SERVICE_NAME,
-    description: "Send a round-up gratuity to the RAE fleet treasury. POST desired amount (floor $0.01, cap $1.00), receive a receipt as JSON. A tip purchases goodwill only. Base USDC x402.",
-    mimeType: "application/json",
-  },
+      accepts: { scheme: "exact", price: "$0.01", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
+      serviceName: SERVICE_NAME,
+      description: "Send a round-up gratuity to the RAE fleet treasury. POST desired amount (floor $0.01, cap $1.00), receive a receipt as JSON. A tip purchases goodwill only. Base USDC x402.",
+      mimeType: "application/json",
+      extensions: {
+        ...declareDiscoveryExtension({
+          method: "POST",
+          bodyType: "json",
+          input: { amount_usdc: "0.01" },
+          output: {
+            example: { ok: true, receipt: "tip-receipt-id", meta: { service: "rae-fleet-router", action: "tip", amount_usdc: "0.01" } },
+          },
+        }),
+      },
+    },
 };
 for (const b of BUNDLE_LADDER) {
   PAID_ROUTES[`POST /api/bundle/${b.id}`] = {
