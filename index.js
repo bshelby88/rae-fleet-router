@@ -749,7 +749,8 @@ function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
     };
   }
   serverApp.get("/.well-known/x402.json", (req, res) => res.json(x402Manifest));
-  serverApp.get("/.well-known/x402", (req, res) => res.json(x402Manifest));
+    serverApp.get("/.well-known/x402", (req, res) => res.json(x402Manifest));
+    serverApp.get("/.well-known/402index-verify.txt", (req, res) => res.type("text/plain").send("377b4dde79d38727099d60ea1c4ee99cb794c3e6dc30997927bf098087bf1f1e"));
   serverApp.get("/openapi.json", (req, res) => res.json(openapi));
   serverApp.get("/pricing.md", (req, res) => res.type("text/markdown; charset=utf-8").send(pricingMarkdown()));
   serverApp.get("/llms.txt", (req, res) => {
