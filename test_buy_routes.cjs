@@ -37,7 +37,7 @@ function check(name, cond, detail) {
 
 const FAC_AGENTPAY = "https://x402-agent-pay.com/facilitator";
 const FAC_RAEN = "https://raen-facilitator.fly.dev/facilitator";
-const RUBY_CHECKSUM = "0x7861DB4EfC14A1ed5dd8C96c528A3796560F1393"; // royal-ruby returns the checksummed form
+const RUBY_CHECKSUM = "0x9B8a27e03CEbA490953cDa8AB1291c0E13bAf72f"; // royal-ruby returns the checksummed form
 const LEAK_WALLET = "0x9b8a2786e4b8c3f7d2a1e5b0c4d9f8a7b6c5d4e3"; // stale-wallet shape used only as a guard fixture
 
 function ep(price, path, desc, body, payTo, network, fac) {
@@ -180,7 +180,7 @@ async function main() {
     const html = await rIdx.text();
     check("/buy is HTML", String(rIdx.headers.get("content-type") || "").includes("text/html"));
     check("index cards link /buy/nft-alpha", html.includes('href="/buy/nft-alpha"'));
-    check("index shows payTo tail …1393", html.includes("…1393") || html.includes("&hellip;1393"));
+    check("index shows payTo tail …f72f", html.includes("…f72f") || html.includes("&hellip;f72f"));
     check("index footer CTA present", /Every wall on Base, USDC, no API keys/.test(html));
 
     const rJ = await fetch(`${base}/buy?format=json`);

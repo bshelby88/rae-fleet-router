@@ -469,7 +469,7 @@ function pricingMarkdown() {
 // serves the whole set as JSON. Failed payments are lost revenue the buyer
 // agent can repair with ONE retry — this page is the repair manual.
 // ---------------------------------------------------------------------------
-const CANONICAL_PAY_TO = "0x7861db4efc14a1ed5dd8c96c528a3796560f1393";
+const CANONICAL_PAY_TO = "0x9b8a27e03ceba490953cda8ab1291c0e13baf72f";
 const MAINNET_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const FACILITATOR_URL = "https://api.cdp.coinbase.com/platform/v2/x402";
 const EXAMPLE_RESOURCE = "https://rae-fleet-router.fly.dev/api/bundle/market-starter";
