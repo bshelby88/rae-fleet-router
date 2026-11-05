@@ -122,8 +122,8 @@
     {"name": "royal-ruby", "status": "pending", "tier": "cleanup"},
     {"name": "tmp-digest-probe-2", "status": "pending", "tier": "cleanup"}
   ],
-  "canonical_treasury": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
-  "canonical_payto": "0x7861db4efc14a1ed5dd8c96c528a3796560f1393",
+  "canonical_treasury": "0x9b8a27e03ceba490953cda8ab1291c0e13baf72f",
+  "canonical_payto": "0x9b8a27e03ceba490953cda8ab1291c0e13baf72f",
   "payer_wallet": "0xfBC0eb7811D477E55261d956dF39f0046E192240",
   "x402_manifest_version": 4
 }
