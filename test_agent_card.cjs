@@ -51,7 +51,7 @@ async function main() {
   check("skill examples are strings (AgentSkill schema)", (card.skills || []).every((s) => s.examples === undefined || (Array.isArray(s.examples) && s.examples.every((x) => typeof x === "string"))));
   const ext = (((card.capabilities || {}).extensions) || []);
   check("x402 capability flag declared", ext.some((e) => /x402/i.test(String(e.uri || "") + String(e.description || ""))));
-  check("extension text names mainnet + treasury", ext.some((e) => /eip155:8453/.test(e.description || "") && /0x7861db4efc14a1ed5dd8c96c528a3796560f1393/.test(e.description || "")));
+  check("extension text names mainnet + treasury", ext.some((e) => /eip155:8453/.test(e.description || "") && /0x9b8a27e03ceba490953cda8ab1291c0e13baf72f/.test(e.description || "")));
 
   // (3) JSON-RPC SendMessage surface
   const rpc = async (payload) => {
