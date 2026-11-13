@@ -70,7 +70,10 @@ async function main() {
   const rP = await fetch(`${base}/pricing.md`);
   const md = await rP.text();
   check("/pricing.md -> 200", rP.status === 200);
-  check("/pricing.md lists $0.10 flagship", md.includes("$0.10"));
+  // EXEC-144 lowered the flagship /api/fleet-bundle $0.10 -> $0.07; assert the
+  // live flagship price, not the retired one (this stale check gated deploys
+  // from 2026-11-11 to 2026-11-13).
+  check("/pricing.md lists $0.07 flagship", md.includes("$0.07"));
   check("/pricing.md lists eip155:8453", md.includes("eip155:8453"));
   check("/pricing.md lists canonical payTo", md.includes(CANONICAL_PAY_TO), CANONICAL_PAY_TO);
   check("/pricing.md lists mainnet USDC", md.includes("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"));
