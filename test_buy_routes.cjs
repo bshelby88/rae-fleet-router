@@ -165,7 +165,9 @@ async function main() {
   check("guard wrong_network", buyGuard("eip155:84532", CANONICAL_PAY_TO) === "wrong_network");
   check("guard payto_mismatch leak wallet", buyGuard("eip155:8453", LEAK_WALLET) === "payto_mismatch");
   check("guard payto_malformed", buyGuard("eip155:8453", "0xdeadbeef") === "payto_malformed");
-  check("BUY_WALLS covers 14 walls", BUY_WALLS.length === 14);
+  // 2026-11-11 sweep dropped royal-feel + raen-portfolio (suspended walls);
+  // the contract shrinks from 14 walls / 27 slugs to 12 walls / 23 slugs.
+  check("BUY_WALLS covers 12 walls", BUY_WALLS.length === 12);
 
   global.fetch = mockFetch;
   const server = app.listen(0);
@@ -188,21 +190,16 @@ async function main() {
     const jJ = await rJ.json();
     check("index json meta", jJ.ok === true && jJ.free === true && /^\d{4}-\d{2}-\d{2}T/.test(jJ.generated_utc || "") && jJ.canonical && jJ.canonical.payTo === CANONICAL_PAY_TO);
 
-    // (2) the 27 contract slugs of PAYLINK-SKU-SHEET §2
-    const EXPECT = ["briefsnap","briefsnap__extract-actions","briefsnap__eli5","briefsnap__compare-docs","dispatch","dispute-forge","escrow","nanobanana","nanobanana__edit-image","nft-alpha","power-pack","rae-fleet-router","rae-fleet-router__bundle_market-starter","rae-fleet-router__bundle_market-intel-trio","rae-fleet-router__bundle_full-fleet-sampler","raen-portfolio","royal-feel","royal-feel__copy-lint","royal-feel__batch-lint","royal-ruby","suprapack","suprapack__get-skill","suprapack__list-top","tradingagents","tradingagents__analyze-arbitrage","vault-pro","vault-pro__scaffold-agent"];
+    // (2) the 23 contract slugs of PAYLINK-SKU-SHEET §2 (post-2026-11-11 sweep:
+    // royal-feel and raen-portfolio walls dropped)
+    const EXPECT = ["briefsnap","briefsnap__extract-actions","briefsnap__eli5","briefsnap__compare-docs","dispatch","dispute-forge","escrow","nanobanana","nanobanana__edit-image","nft-alpha","power-pack","rae-fleet-router","rae-fleet-router__bundle_market-starter","rae-fleet-router__bundle_market-intel-trio","rae-fleet-router__bundle_full-fleet-sampler","royal-ruby","suprapack","suprapack__get-skill","suprapack__list-top","tradingagents","tradingagents__analyze-arbitrage","vault-pro","vault-pro__scaffold-agent"];
     const got = new Set(jJ.items.map((i) => i.slug));
     const missing = EXPECT.filter((s) => !got.has(s));
     const extra = [...got].filter((s) => !EXPECT.includes(s));
-    check("slug set == contract 27", missing.length === 0 && extra.length === 0, `n=${got.size} missing=${missing.join(",") || "-"} extra=${extra.join(",") || "-"}`);
+    check("slug set == contract 23", missing.length === 0 && extra.length === 0, `n=${got.size} missing=${missing.join(",") || "-"} extra=${extra.join(",") || "-"}`);
     check("all index prices from live manifests (no hardcoded table)", jJ.items.every((i) => i.amount_micro === null || microFromPrice(String(i.price_usdc)) === i.amount_micro));
     check("every reachable item canonical payTo", jJ.items.filter((i) => i.status === "ok").every((i) => i.payTo.toLowerCase() === CANONICAL_PAY_TO.toLowerCase()));
     check("network eip155:8453 on every ok item", jJ.items.filter((i) => i.status === "ok").every((i) => i.network === "eip155:8453"));
-    // (7) split-brain facilitator echoed verbatim
-    const raen = jJ.items.find((i) => i.slug === "raen-portfolio");
-    check("raen-portfolio facilitator echoed verbatim", raen && raen.facilitator === FAC_RAEN, raen && raen.facilitator);
-    // duplicate flag §6.2
-    const dup = jJ.items.find((i) => i.slug === "royal-feel__copy-lint");
-    check("royal-feel__copy-lint marked duplicate_of royal-feel", dup && dup.duplicate_of === "royal-feel");
 
     // (3) pay pages: wire-sourced PaymentRequirements
     for (const [slug, amount, priceNeedle] of [["nft-alpha", "20000", "$0.02"], ["royal-ruby", "250000", "$0.25"]]) {
