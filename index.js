@@ -97,6 +97,11 @@ const FLEET = {
   "opensea-data-x402": { url: "https://opensea-data-x402.fly.dev/api", price: 10000 },
   "suprapack-x402": { url: "https://suprapack-x402.fly.dev/api/find-skill", price: 30000 },
   "nanobanana-x402": { url: "https://nanobanana-x402.fly.dev/api/generate-image", price: 10000 },
+  // EXEC-146 — compliance-kit + full-stack bundle legs (prices verified live
+  // from each wall's /.well-known/x402.json on 2026-11-13).
+  "dispute-forge-x402": { url: "https://dispute-forge-x402.fly.dev/api/dispute-pack", price: 750000 },
+  "contract-eye-x402": { url: "https://contract-eye-x402.fly.dev/api/analyze-contract", price: 50000 },
+  "vault-pro-x402": { url: "https://vault-pro-x402.fly.dev/api/scaffold-project", price: 50000 },
 };
 
 async function callFleetService(name, payload) {
@@ -327,6 +332,20 @@ const BUNDLE_OUTPUT_SCHEMA = {
   required: ["ok"],
 };
 
+// EXEC-146 — compliance-kit has its own body shape (dispute + contract legs),
+// so it advertises its own request schema. Keeping it separate from
+// BUNDLE_INPUT_SCHEMA prevents schema drift between manifest and route.
+const COMPLIANCE_INPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    creditor: { type: "string", minLength: 1, description: "Creditor/collection agency name for the dispute pack", example: "Acme Collections LLC" },
+    reason: { type: "string", description: "Optional dispute reason", example: "Debt is not mine / inaccurate reporting" },
+    text: { type: "string", minLength: 1, description: "Contract text to analyze", example: "This agreement auto-renews every twelve months unless cancelled sixty days prior." },
+    focus: { type: "array", items: { type: "string" }, description: "Optional analysis focus areas", example: ["renewal", "liability"] },
+  },
+  required: ["creditor", "text"],
+};
+
 const bundleRoute = {
   accepts: { scheme: "exact", price: "$0.07", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
   serviceName: SERVICE_NAME,
@@ -374,6 +393,27 @@ const BUNDLE_LADDER = [
     desc: "Sample all five sub-$0.03 fleet services in one call: data, signals, skills, image generation, outreach scoring. Receive each service's result as JSON. $0.06 per call, Base USDC x402.",
     parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
   },
+  {
+    // EXEC-146 — parts priced from live /.well-known/x402.json (2026-11-13):
+    // dispute-forge $0.75 + contract-eye $0.05 = $0.80 sum-of-parts.
+    id: "compliance-kit", price: "$0.69", ceiling: 0.85,
+    title: "Compliance Kit",
+    desc: "Run a compliance pass in one call: forge an evidence-grade credit dispute pack AND analyze contract text for renewal/liability traps. POST {creditor, text, reason?, focus?}, receive dispute pack + contract findings as JSON. $0.69 per call, Base USDC x402.",
+    parts: [["dispute-forge-x402", 0.75], ["contract-eye-x402", 0.05]],
+    requiredFields: ["creditor", "text"],
+    requestSchema: COMPLIANCE_INPUT_SCHEMA,
+    input: { creditor: "Acme Collections LLC", reason: "Debt is not mine / inaccurate reporting", text: "This agreement auto-renews every twelve months unless cancelled sixty days prior." },
+  },
+  {
+    // EXEC-146 — parts priced from live manifests (2026-11-13): tradingagents
+    // $0.05 + vault-pro $0.05 + suprapack $0.03 + nft-alpha $0.02 +
+    // nanobanana $0.01 + power-pack $0.01 = $0.17 sum-of-parts.
+    id: "full-stack", price: "$0.09", ceiling: 0.20,
+    title: "Full Stack",
+    desc: "The whole dev/agent stack in one call: market signals, ticker analysis, skill match, image, outreach scoring, and a scaffolded project plan. POST {topic, goal?}, receive all six results as JSON. $0.09 per call, Base USDC x402.",
+    parts: [["tradingagents-x402", 0.05], ["vault-pro-x402", 0.05], ["suprapack-x402", 0.03], ["nft-alpha-x402", 0.02], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
+    input: { topic: "Azuki", goal: "Launch a token-gated community research sprint" },
+  },
 ];
 
 function bundleSumOfParts(b) {
@@ -389,6 +429,10 @@ function bundlePayloadFor(name, body) {
     case "suprapack-x402": return { query: body.query || topic };
     case "nanobanana-x402": return { prompt: body.prompt || `Illustration for topic: ${topic}` };
     case "power-pack-x402": return { subject: body.email_subject || "Quick question", body: body.email_body || "Hi, I wanted to reach out about our product." };
+    // EXEC-146 bundle legs
+    case "dispute-forge-x402": return { creditor: body.creditor, reason: body.reason || "Debt is not mine / inaccurate reporting" };
+    case "contract-eye-x402": return { text: body.text, focus: body.focus || ["renewal", "liability"] };
+    case "vault-pro-x402": return { goal: body.goal || (body.topic ? `Project plan for: ${body.topic}` : "Scaffold a project plan") };
     default: return { topic };
   }
 }
@@ -396,8 +440,12 @@ function bundlePayloadFor(name, body) {
 function makeBundleHandler(b) {
   return async (req, res) => {
     const body = req.body || {};
-    if (!body.topic || typeof body.topic !== "string") {
-      return res.status(400).json({ ok: false, error: "topic (string) required" });
+    // EXEC-146 — per-bundle required fields (default: topic) so compliance-kit's
+    // {creditor, text} body validates the same way the manifest advertises.
+    const requiredFields = b.requiredFields || ["topic"];
+    const missing = requiredFields.filter((f) => !body[f] || typeof body[f] !== "string");
+    if (missing.length > 0) {
+      return res.status(400).json({ ok: false, error: `${missing.join(", ")} (string${missing.length > 1 ? "s" : ""}) required` });
     }
     const bundle = {};
     for (const [name] of b.parts) {
@@ -978,7 +1026,7 @@ for (const b of BUNDLE_LADDER) {
     serviceName: SERVICE_NAME,
     description: b.desc,
     mimeType: "application/json",
-    requestSchema: BUNDLE_INPUT_SCHEMA,
+    requestSchema: b.requestSchema || BUNDLE_INPUT_SCHEMA,
     responseSchema: BUNDLE_OUTPUT_SCHEMA,
     // EXEC-52: extensions.bazaar is a REQUIRED preflight check for CDP Bazaar
     // indexing; the ladder routes shipped none (flagship bundleRoute had it,
@@ -987,8 +1035,8 @@ for (const b of BUNDLE_LADDER) {
       ...declareDiscoveryExtension({
         method: "POST",
         bodyType: "json",
-        input: { topic: "Azuki" },
-        inputSchema: BUNDLE_INPUT_SCHEMA,
+        input: b.input || { topic: "Azuki" },
+        inputSchema: b.requestSchema || BUNDLE_INPUT_SCHEMA,
         output: {
           example: { ok: true, bundle: {}, meta: { route: b.id, services_called: b.parts.length } },
           schema: BUNDLE_OUTPUT_SCHEMA,
@@ -1616,6 +1664,76 @@ const url=window.location.origin+'/buy/'+s+(n?'?gift_note='+n:'?gift=1');p.style
 </body></html>`);
 });
 
+// EXEC-146 — GET /buy/bundle/:name: hosted purchase page per curated bundle.
+// MUST be registered BEFORE /buy/:slug so "bundle" is not eaten as a slug.
+// Free route (200, never 402). Carries an `x402-challenge` header (base64 JSON,
+// same decode shape as PAYMENT-REQUIRED) so a machine can prepare payment for
+// the payable POST /api/bundle/{id} route without a round-trip 402.
+app.get("/buy/bundle/:name", (req, res) => {
+  const name = decodeURIComponent(req.params.name || "");
+  const b = BUNDLE_LADDER.find((x) => x.id === name);
+  res.set("Cache-Control", "public, max-age=60");
+  if (!b) {
+    return res.status(404).json({ ok: false, error: `unknown bundle: ${name}`, available: BUNDLE_LADDER.map((x) => x.id) });
+  }
+  const sum = bundleSumOfParts(b);
+  const price = parseFloat(b.price.replace("$", ""));
+  const accepts = {
+    scheme: "exact", price: b.price, network: NETWORK, payTo: PAY_TO,
+    asset: MAINNET_USDC, extra: { facilitator: CHALLENGE_FACILITATOR_URL },
+  };
+  const challenge = Buffer.from(JSON.stringify({ x402Version: 2, accepts: [accepts] })).toString("base64");
+  const payableUrl = `https://rae-fleet-router.fly.dev/api/bundle/${b.id}`;
+  const parts = b.parts.map(([n, p]) => ({ service: n.replace("-x402", ""), endpoint: (FLEET[n] && FLEET[n].url) || null, price_usdc: p }));
+  res.set("x402-challenge", challenge);
+  const itemsJson = {
+    ok: true, free: true, service: SERVICE_NAME, page: `/buy/bundle/${b.id}`,
+    generated_utc: new Date().toISOString(),
+    bundle: {
+      id: b.id, title: b.title, description: b.desc,
+      bundle_price_usd: price, sum_of_parts_usd: Number(sum.toFixed(2)),
+      savings_usd: Number((sum - price).toFixed(2)),
+      payTo: PAY_TO, network: NETWORK, asset: MAINNET_USDC,
+      facilitator: CHALLENGE_FACILITATOR_URL,
+      payable_route: `POST ${payableUrl}`,
+      required_fields: b.requiredFields || ["topic"],
+      example_input: b.input || { topic: "Azuki" },
+      items: parts,
+    },
+  };
+  if (String(req.query.format || "").toLowerCase() === "json") return res.json(itemsJson);
+  const rows = parts.map((p) =>
+    `<tr><td>${escHtml(p.service)}</td><td><code>${escHtml(String(p.endpoint || ""))}</code></td><td style="text-align:right">$${p.price_usdc.toFixed(2)}</td></tr>`
+  ).join("\n");
+  const curlBody = JSON.stringify(b.input || { topic: "Azuki" });
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(b.title)} — RAE Fleet bundle</title>
+<meta name="description" content="${escHtml(b.desc).slice(0, 150)}">
+<style>body{font-family:system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#111;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:1rem 0}td,th{border:1px solid #ddd;padding:.4rem .6rem;text-align:left;font-size:.9rem}
+.bundle-price{font-size:1.6rem;font-weight:800;color:#06c}.sum{color:#666;text-decoration:line-through}
+code{background:#f5f5f5;padding:.1em .3em;border-radius:3px;font-size:.85em;word-break:break-all}
+.savings{background:#e8f7ee;border:1px solid #bfe8cf;border-radius:8px;padding:.6rem 1rem;margin:1rem 0}
+</style></head><body>
+<h1>${escHtml(b.title)}</h1>
+<p>${escHtml(b.desc)}</p>
+<p class="bundle-price">${escHtml(b.price)} <span class="sum">$${sum.toFixed(2)}</span> per call &middot; USDC on Base (x402)</p>
+<div class="savings"><strong>Bundle saves $${(sum - price).toFixed(2)}</strong> — priced strictly below the sum of its live per-call parts (see <a href="/pricing.md">/pricing.md</a>).</div>
+<table><thead><tr><th>Service</th><th>Endpoint</th><th>Standalone</th></tr></thead>
+<tbody>
+${rows}
+</tbody></table>
+<p><strong>Payable route:</strong> <code>POST ${escHtml(payableUrl)}</code> — required fields: <code>${escHtml((b.requiredFields || ["topic"]).join(", "))}</code></p>
+<p><strong>Example body:</strong></p>
+<pre><code>${escHtml(curlBody)}</code></pre>
+<p>Pay flow: POST without payment &rarr; read the <code>PAYMENT-REQUIRED</code> header &rarr; sign the USDC transferWithAuthorization (EIP-3009) &rarr; re-send with <code>PAYMENT-SIGNATURE</code>. A pre-built challenge for this bundle's exact price ships in the <code>x402-challenge</code> response header of this page.</p>
+<p style="margin-top:1.5rem">&larr; <a href="/buy">Back to wall index</a> &middot; <a href="/buy/bundle/${escHtml(b.id)}?format=json">JSON</a> &middot; <a href="/explore">Explore the fleet</a></p>
+</body></html>`;
+  res.type("text/html; charset=utf-8").send(html);
+});
+
 app.get("/buy/:slug", async (req, res) => {
   const slug = decodeURIComponent(req.params.slug || "");
   const page = await buyPage(slug);
@@ -1889,6 +2007,28 @@ app.get("/buy/:slug", async (req, res) => {
                                 const tier = priceTier(i.price_usdc);
                                 if (tiered[tier]) tiered[tier].push(i);
                               }
+                              // EXEC-146 — curated bundle cards, pinned above the tier catalog
+                              const bundleCards = BUNDLE_LADDER.map((b) => {
+                                const sum = bundleSumOfParts(b);
+                                const price = parseFloat(b.price.replace("$", ""));
+                                const partsLabel = b.parts.map(([n, p]) => `${n.replace("-x402", "")} $${p.toFixed(2)}`).join(" + ");
+                                const curlCmd = `curl -s -X POST "https://rae-fleet-router.fly.dev/api/bundle/${b.id}" -H "Content-Type: application/json" -d '${JSON.stringify(b.input || { topic: "Azuki" })}'`;
+                                return `<div class="e-card" data-tags="bundle" data-tier="bundle">
+                        <h3><a href="/buy/bundle/${escHtml(b.id)}">${escHtml(b.title)}</a></h3>
+                        <p class="e-tags"><span class="e-tag">bundle</span></p>
+                        <p class="e-desc">${escHtml(b.desc)}</p>
+                        <p class="e-price">${escHtml(b.price)} USDC &middot; <span style="text-decoration:line-through;color:#666">$${sum.toFixed(2)}</span> &middot; saves $${(sum - price).toFixed(2)}</p>
+                        <p class="e-ep"><code>${escHtml(partsLabel)}</code></p>
+                        <button class="e-curl-btn" data-curl="${escHtml(curlCmd)}" onclick="toggleCurl(this)">Copy curl</button>
+                        <pre class="e-curl-box" style="display:none">${escHtml(curlCmd)}</pre>
+                        <a href="/buy/bundle/${escHtml(b.id)}" class="e-btn">Buy bundle — ${escHtml(b.price)} USDC</a>
+                      </div>`;
+                              }).join("\\n");
+                              const bundleSection = `<div class="e-tier" data-tier="bundle">
+                        <h2 class="e-tier-h">\u{1F9F1} Curated Bundles</h2>
+                        <p class="e-tier-desc">Multi-service calls priced strictly below the sum of their live per-call parts. Buy page per bundle lists every item and the totals.</p>
+                        ${bundleCards}
+                      </div>`;
                               // collect unique tags across all items
                               const allTags = [...new Set(allItems.flatMap(i => itemTags(i.slug)))].sort();
                               const tierHtml = CATALOG_TIERS.map((t) => {
@@ -1976,6 +2116,7 @@ app.get("/buy/:slug", async (req, res) => {
                       ${tagBtns}
                       <button class="e-clear-btn" onclick="clearFilter()">Clear</button>
                       </div>
+                      ${bundleSection}
                       ${tierHtml}
                       <div class="no-match" id="noMatch">No endpoints match the selected tag.</div>
                       <footer>Prices crawled live from each wall's live 402 challenges. Use the tag filter to find the right capability.<br>
@@ -2048,7 +2189,19 @@ app.get("/buy/:slug", async (req, res) => {
                               }));
                               res.json({ ok: true, free: true, service: "rae-fleet-router", page: "/explore.json",
                                 generated_utc: new Date().toISOString(),
-                                count: items.length, tiers: CATALOG_TIERS, items });
+                                count: items.length, tiers: CATALOG_TIERS, items,
+                                // EXEC-146 — machine-readable curated bundle listings
+                                bundles: BUNDLE_LADDER.map((b) => ({
+                                  id: b.id, title: b.title, description: b.desc,
+                                  price_usdc: parseFloat(b.price.replace("$", "")),
+                                  sum_of_parts_usd: Number(bundleSumOfParts(b).toFixed(2)),
+                                  savings_usd: Number((bundleSumOfParts(b) - parseFloat(b.price.replace("$", ""))).toFixed(2)),
+                                  required_fields: b.requiredFields || ["topic"],
+                                  example_input: b.input || { topic: "Azuki" },
+                                  items: b.parts.map(([n, p]) => ({ service: n.replace("-x402", ""), endpoint: (FLEET[n] && FLEET[n].url) || null, price_usdc: p })),
+                                  payable_route: `POST https://rae-fleet-router.fly.dev/api/bundle/${b.id}`,
+                                  buy_url: `https://rae-fleet-router.fly.dev/buy/bundle/${b.id}`,
+                                })) });
                             });
 
                             // ---------------------------------------------------------------------------
@@ -2920,19 +3073,42 @@ async function probeComplianceMember(member) {
 // BUNDLE_INPUT_SCHEMA machine contract: topic required (non-empty string);
 // email_subject/email_body optional but type/length-checked when present.
 const BUNDLE_ID_SET = new Set(BUNDLE_LADDER.map(b => b.id));
-function bundleBodyErrors(body) {
+// EXEC-146 — validation is now per-bundle, derived from the SAME requestSchema
+// the route advertises in /.well-known/x402.json (was: hardcoded topic rules
+// for every ladder route, which rejected compliance-kit's advertised
+// {creditor, text} body with 400 while letting invalid bodies through to 402).
+function bundleForPath(id) {
+  return BUNDLE_LADDER.find((b) => b.id === id) || null;
+}
+function typeCheckOk(value, type) {
+  if (type === "string") return typeof value === "string";
+  if (type === "array") return Array.isArray(value);
+  if (type === "object") return typeof value === "object" && value !== null && !Array.isArray(value);
+  return true;
+}
+function bundleBodyErrors(body, bundle) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return ["JSON object body required"];
   }
+  const schema = (bundle && bundle.requestSchema) || BUNDLE_INPUT_SCHEMA;
+  const props = schema.properties || {};
+  const required = schema.required || [];
   const errors = [];
-  if (typeof body.topic !== "string" || body.topic.trim().length === 0) {
-    errors.push("topic (non-empty string) required");
+  for (const f of required) {
+    const v = body[f];
+    if (typeof v !== "string" || v.trim().length === 0) {
+      errors.push(`${f} (non-empty string) required`);
+    }
   }
-  if (body.email_subject !== undefined && (typeof body.email_subject !== "string" || body.email_subject.length < 3)) {
-    errors.push("email_subject must be a string of at least 3 characters when present");
-  }
-  if (body.email_body !== undefined && (typeof body.email_body !== "string" || body.email_body.length < 20)) {
-    errors.push("email_body must be a string of at least 20 characters when present");
+  for (const [f, spec] of Object.entries(props)) {
+    if (required.includes(f)) continue;
+    if (body[f] !== undefined) {
+      if (!typeCheckOk(body[f], spec.type)) {
+        errors.push(`${f} must be of type ${spec.type} when present`);
+      } else if (spec.type === "string" && spec.minLength && body[f].length < spec.minLength) {
+        errors.push(`${f} must be a string of at least ${spec.minLength} characters when present`);
+      }
+    }
   }
   return errors;
 }
@@ -2940,14 +3116,19 @@ app.use((req, res, next) => {
   if (req.method !== "POST") return next();
   const m = /^\/api\/bundle\/([^/]+)\/?$/.exec(req.path);
   if (!m || !BUNDLE_ID_SET.has(m[1])) return next();
-  const errors = bundleBodyErrors(req.body);
+  const bundle = bundleForPath(m[1]);
+  const errors = bundleBodyErrors(req.body, bundle);
   if (errors.length) {
+    const schema = (bundle && bundle.requestSchema) || BUNDLE_INPUT_SCHEMA;
+    const expected = Object.entries(schema.properties || {})
+      .map(([f, s]) => `${f}${(schema.required || []).includes(f) ? "" : " (optional)"}: ${s.type}${s.minLength ? ` (>=${s.minLength} chars)` : ""}`)
+      .join("; ");
     return res.status(400).json({
       ok: false,
       error: errors.join("; "),
       charged: false,
       "x-payment-challenge": false,
-      expected: "topic (non-empty string); optional email_subject (>=3 chars), email_body (>=20 chars)",
+      expected,
       retry: "Fix the JSON body and re-send UNPAID — 400 responses are never billed. Machine contract: /openapi.json",
       "x-recovery": "https://rae-fleet-router.fly.dev/pay-failed",
     });

@@ -35,11 +35,28 @@ async function main() {
     ["short email_subject", { topic: "Azuki", email_subject: "ab" }],
     ["short email_body", { topic: "Azuki", email_body: "too short" }],
   ];
+  // EXEC-146 — per-bundle invalid cases derived from each route's own
+  // requestSchema, so bundles with non-topic bodies (compliance-kit) are
+  // validated against the contract they actually advertise.
+  function invalidCasesFor(b) {
+    const required = (b.requestSchema && b.requestSchema.required) || ["topic"];
+    if (required.includes("topic")) return invalidCases;
+    const cases = [["empty {}", {}]];
+    for (const f of required) {
+      const partial = { ...b.input };
+      delete partial[f];
+      cases.push([`missing ${f}`, partial]);
+      cases.push([`${f} wrong type`, { ...b.input, [f]: 42 }]);
+    }
+    return cases;
+  }
+  // valid body must satisfy the bundle's own required fields
+  const validBodyFor = (b) => b.input || { topic: "Azuki" };
 
   for (const b of BUNDLE_LADDER) {
     const path = `/api/bundle/${b.id}`;
     // (1) every invalid case must 400 WITHOUT any payment challenge header
-    for (const [label, body] of invalidCases) {
+    for (const [label, body] of invalidCasesFor(b)) {
       const r = await post(path, body);
       const pr = r.headers.get("payment-required") || r.headers.get("x-payment");
       check(`${b.id} invalid [${label}] -> 400`, r.status === 400, `got ${r.status}`);
@@ -54,7 +71,7 @@ async function main() {
     // answer 402 (facilitator reachable) or 5xx (not reachable); what it can
     // NEVER do is 400 from our layer. When a 402 challenge IS issued, decode
     // and assert the exact advertised atomic amount.
-    const rg = await post(path, { topic: "Azuki" });
+    const rg = await post(path, validBodyFor(b));
     check(`${b.id} valid body passes pre-validation (not 400)`, rg.status !== 400, `got ${rg.status}`);
     const hdr = rg.headers.get("payment-required") || rg.headers.get("x-payment");
     const expected = String(Math.round(parseFloat(b.price.replace("$", "")) * 1e6));

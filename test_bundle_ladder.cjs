@@ -19,7 +19,10 @@ for (const b of BUNDLE_LADDER) {
   // one line per bundle: bundle_price < sum_of_parts
   check(`${b.id}: ${b.price} < sum-of-parts $${sum.toFixed(2)}`, price < sum,
     b.parts.map(([n, p]) => `${n} $${p.toFixed(2)}`).join(" + "));
-  check(`${b.id}: sub-$0.10 ladder ceiling`, price < 0.10);
+  // EXEC-146 — bundles may declare an explicit ceiling when their real parts
+  // cost more than the historical sub-$0.10 sample band (e.g. compliance-kit).
+  const ceiling = b.ceiling || 0.10;
+  check(`${b.id}: sub-$${ceiling.toFixed(2)} ceiling`, price < ceiling);
   const route = PAID_ROUTES[`POST /api/bundle/${b.id}`];
   check(`${b.id}: registered payable route at advertised price`, !!route && route.accepts.price === b.price);
 }
