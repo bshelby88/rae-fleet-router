@@ -82,7 +82,8 @@ async function main() {
       JSON.stringify(fa.extra));
 
     for (const b of BUNDLE_LADDER) {
-      const p = await challengeReq(`${base}/api/bundle/${b.id}`, { "x-forwarded-proto": "https" }, { topic: "Azuki" });
+      // EXEC-146 — probe with each bundle's own valid body (400-before-402).
+      const p = await challengeReq(`${base}/api/bundle/${b.id}`, { "x-forwarded-proto": "https" }, b.input || { topic: "Azuki" });
       const acc = (p.challenge?.accepts || [])[0] || {};
       check(`bundle/${b.id} accepts[0].extra.facilitator`,
         p.status === 402 && acc.extra?.facilitator === FACILITATOR, JSON.stringify(acc.extra) || `status=${p.status}`);

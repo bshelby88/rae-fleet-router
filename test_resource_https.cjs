@@ -89,7 +89,10 @@ async function main() {
 
     // --- ladder routes ------------------------------------------------------
     for (const b of BUNDLE_LADDER) {
-      const p = await challengeReq(`${base}/api/bundle/${b.id}`, { "x-forwarded-proto": "https" }, { topic: "Azuki" });
+      // EXEC-146 — probe with each bundle's own valid body so pre-validation
+      // (400-before-402) passes and the route reaches the payment gate.
+      const validBody = b.input || { topic: "Azuki" };
+      const p = await challengeReq(`${base}/api/bundle/${b.id}`, { "x-forwarded-proto": "https" }, validBody);
       const cl = p.challenge;
       check(`bundle/${b.id} resource.url https://`,
         p.status === 402 && !!cl && String(cl.resource?.url || "").startsWith(`https://127.0.0.1:${port}/api/bundle/${b.id}`),

@@ -48,7 +48,7 @@ async function main() {
   check("md body contains markdown embed format", md.includes("!["), "markdown img syntax");
   check("md body contains HTML embed format", md.includes("<a href"), "HTML link present");
   check("md body contains agent block", md.includes("eip155:8453"), "agent block chain");
-  check("md body contains payTo", md.includes("0x7861db4e"), "canonical payTo in agent block");
+  check("md body contains payTo", md.includes("0x9b8a27e0"), "canonical payTo in agent block");
   check("md body contains router URL", md.includes("rae-fleet-router.fly.dev"), "router URL present");
 
   // (4) /badge.svg?format=json should still serve SVG (format param ignored)
