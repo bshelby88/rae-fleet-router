@@ -2710,6 +2710,24 @@ app.get("/privacy.json", (_req, res) => res.json(privacyJson()));
 app.get("/how-it-works", (_req, res) => res.type("text/markdown; charset=utf-8").send(howItWorksMarkdown()));
 app.get("/how-it-works.json", (_req, res) => res.json(howItWorksJson()));
 app.get("/tip.md", (_req, res) => res.type("text/markdown; charset=utf-8").send(TIP_MD));
+
+// EXEC-135: machine twin of /tip.md — same facts as JSON, free trust surface
+// (registered above paymentMiddleware, never a 402).
+const TIP_JSON = {
+  service: "rae-fleet-router",
+  route: "/api/tip",
+  title: "Keep the Change — tip the fleet",
+  description: "Gratuity endpoint gated by the same x402 machinery as every paid route. A tip purchases goodwill, not a resource: settlement lands in the canonical fleet treasury and you get a JSON receipt. Nothing else is delivered; there is no refund path.",
+  spec_md: "https://rae-fleet-router.fly.dev/tip.md",
+  price: { floor_usdc: 0.01, floor_atomic_units: 10000, cap_usdc: 1.0, cap_atomic_units: 1000000, over_cap: "rejected" },
+  network: "eip155:8453",
+  scheme: "exact",
+  asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  asset_label: "USDC (6 decimals)",
+  payTo: "0x9b8a27e03ceba490953cda8ab1291c0e13baf72f",
+  unpaid_behavior: "402 with the standard PAYMENT-REQUIRED challenge",
+};
+app.get("/tip.json", (_req, res) => res.type("application/json; charset=utf-8").send(TIP_JSON));
 app.get("/playground", (_req, res) => res.type("text/html; charset=utf-8").send(renderPlaygroundHtml()));
 
 // EXEC-105 — GET /penny-stack: landing page for the 4 cheapest x402 walls.
