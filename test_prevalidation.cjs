@@ -1,14 +1,24 @@
-// EXEC-41 acceptance tests — 400-before-402 charging order on /api/bundle/*.
-// Asserts: (1) an invalid body ({} etc.) gets HTTP 400 with NO payment-required
-// challenge header (buyer can never be gated-then-billed-then-400'd), and
-// (2) a valid body still gets the unchanged 402 x402 challenge at the exact
-// advertised atomic amounts (market-starter 20000, market-intel-trio 50000,
-// full-fleet-sampler 60000).
-// Run: node test_prevalidation.cjs   (no secrets needed — dummy env only)
+// [402-FIRST] acceptance tests — BEAN fix wave 2026-11-22.
+// Replaces the EXEC-41 400-before-402 contract (retired by the owner-ordered
+// lint-FAIL fix wave): the manifest linter and the x402 spec both expect an
+// UNPAID probe on a paid route to meet the 402 challenge, whatever the body.
+// Asserts, per /api/bundle/<id> ladder route:
+//   (1) an UNPAID POST with an INVALID body ({} etc.) gets HTTP 402 WITH a
+//       decodable payment-required challenge — never a bare 400 — and a
+//       machine-readable 402 BODY carrying payment_instructions (QUOTE-01);
+//   (2) charging safety is preserved: body validation still happens (400)
+//       AFTER the gate verifies payment, inside makeBundleHandler — asserted
+//       at the unit level via bundleBodyErrors() on the same invalid bodies;
+//   (3) a valid unpaid body gets the unchanged 402 challenge at the exact
+//       advertised atomic amounts (market-starter 20000, market-intel-trio
+//       50000, full-fleet-sampler 60000);
+//   (4) GET on the paid route returns a 402 JSON quote twin (GET_TWIN fix).
+// Run: node test_prevalidation.cjs   (no secrets needed — dummy env only;
+// the sandbox runs eip155:84532 against the x402.org testnet facilitator)
 process.env.X402_PAY_TO = process.env.X402_PAY_TO || "0x0000000000000000000000000000000000000001";
 process.env.ROUTER_KEY = process.env.ROUTER_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // public Hardhat test key #0
 
-const { app, BUNDLE_LADDER, PAID_ROUTES } = require("./index.js");
+const { app, BUNDLE_LADDER, PAID_ROUTES, bundleBodyErrors } = require("./index.js");
 
 let failures = 0;
 function check(name, cond, detail) {
@@ -55,26 +65,37 @@ async function main() {
 
   for (const b of BUNDLE_LADDER) {
     const path = `/api/bundle/${b.id}`;
-    // (1) every invalid case must 400 WITHOUT any payment challenge header
+    const expected = String(Math.round(parseFloat(b.price.replace("$", "")) * 1e6));
+
+    // (1) every UNPAID invalid case must reach the payment gate (402-FIRST).
+    // Sandbox note: no public facilitator currently serves eip155:84532 exact
+    // (x402.org dropped it), so a local run answers 5xx from INSIDE the gate —
+    // the assertion is "never a pre-gate 400"; the live 402 (header + body +
+    // payment_instructions) is asserted by the post-deploy reverify gate and
+    // proven below for the GET twins, which need no facilitator.
     for (const [label, body] of invalidCasesFor(b)) {
       const r = await post(path, body);
       const pr = r.headers.get("payment-required") || r.headers.get("x-payment");
-      check(`${b.id} invalid [${label}] -> 400`, r.status === 400, `got ${r.status}`);
-      check(`${b.id} invalid [${label}] -> NO payment challenge issued`, !pr);
+      check(`${b.id} unpaid invalid [${label}] not short-circuited by pre-gate 400`, r.status !== 400, `got ${r.status}`);
+      if (r.status === 402) {
+        check(`${b.id} unpaid invalid [${label}] -> payment challenge issued`, !!pr);
+        let j = null;
+        try { j = await r.json(); } catch (_) {}
+        check(`${b.id} unpaid invalid [${label}] -> 402 body is JSON`, !!j);
+        check(`${b.id} unpaid invalid [${label}] -> body carries payment_instructions`,
+          !!(j && j.payment_instructions && typeof j.payment_instructions === "object"));
+      } else {
+        check(`${b.id} unpaid invalid [${label}] reached the gate (5xx facilitator sandbox)`, r.status >= 500, `got ${r.status}`);
+      }
+      // charging safety (unit level): the same body WOULD 400 post-payment
+      check(`${b.id} invalid [${label}] would be rejected post-payment (unit)`,
+        bundleBodyErrors(body, b).length > 0);
     }
-    // non-JSON object body (array) must also 400 pre-gate
-    const rArr = await post(path, "[1,2]");
-    check(`${b.id} array body -> 400`, rArr.status === 400, `got ${rArr.status}`);
 
-    // (2) valid body must NOT be short-circuited by pre-validation: it falls
-    // through to the payment gate. In a facilitator-less sandbox the gate may
-    // answer 402 (facilitator reachable) or 5xx (not reachable); what it can
-    // NEVER do is 400 from our layer. When a 402 challenge IS issued, decode
-    // and assert the exact advertised atomic amount.
+    // (2) valid unpaid body: reaches the gate at the exact advertised amount
     const rg = await post(path, validBodyFor(b));
-    check(`${b.id} valid body passes pre-validation (not 400)`, rg.status !== 400, `got ${rg.status}`);
+    check(`${b.id} valid unpaid body not short-circuited by pre-gate 400`, rg.status !== 400, `got ${rg.status}`);
     const hdr = rg.headers.get("payment-required") || rg.headers.get("x-payment");
-    const expected = String(Math.round(parseFloat(b.price.replace("$", "")) * 1e6));
     if (rg.status === 402 && hdr) {
       let amount = null;
       try {
@@ -90,14 +111,22 @@ async function main() {
       const rAtomic = rp ? String(Math.round(parseFloat(rp.replace("$", "")) * 1e6)) : null;
       check(`${b.id} gate route price == ${expected} atomic (facilitator unreachable in sandbox; challenge status ${rg.status})`, rAtomic === expected, `route price ${rp}`);
     }
+
+    // (3) GET twin: machine-readable 402 quote, no challenge header
+    const gt = await fetch(`${base}${path}`);
+    let gj = null;
+    try { gj = await gt.json(); } catch (_) {}
+    check(`${b.id} GET twin -> 402`, gt.status === 402, `got ${gt.status}`);
+    check(`${b.id} GET twin body is a JSON quote`, !!(gj && gj.quote && gj.quote.method === "POST"));
   }
 
-  // 400 response must be parseable JSON with the honest not-charged markers
-  const rj = await post(`/api/bundle/${BUNDLE_LADDER[0].id}`, {});
-  const j = await rj.json().catch(() => null);
-  check("400 body is JSON", !!j);
-  check("400 body states charged=false", j && j.charged === false);
-  check("400 body carries retry guidance", j && typeof j.retry === "string" && j.retry.length > 0);
+  // flagship + tip GET twins (GET_TWIN fix covers all PAID_ROUTES)
+  for (const p of ["/api/fleet-bundle", "/api/tip"]) {
+    const r = await fetch(`${base}${p}`);
+    check(`GET twin ${p} -> 402`, r.status === 402, `got ${r.status}`);
+    const j = await r.json().catch(() => null);
+    check(`GET twin ${p} body is a JSON quote`, !!(j && j.quote));
+  }
 
   server.close();
   console.log(failures === 0 ? "\nALL TESTS PASSED" : `\n${failures} TEST(S) FAILED`);

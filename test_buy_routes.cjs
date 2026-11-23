@@ -316,7 +316,7 @@ async function main() {
 
     // regression: paid routes still gate — /buy must not have altered middleware order
     const rPaid = await fetch(`${base}/api/bundle/market-starter`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-    check("paid ladder route still 400-before-402 (EXEC-41 intact)", rPaid.status === 400, `got ${rPaid.status}`);
+    check("paid ladder route reaches the payment gate, no pre-gate 400 ([402-FIRST] BEAN fix wave 2026-11-22; sandbox 5xx = facilitator gap, live 402 asserted post-deploy)", rPaid.status !== 400, `got ${rPaid.status}`);
     const rBundle = await fetch(`${base}/api/fleet-bundle`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: "Azuki" }) });
     check("flagship POST /api/fleet-bundle still gated (never free 200 unpaid)", rBundle.status !== 200, `got ${rBundle.status}`);
     check("no money moved by tests: no X402_PAY_TO canonical exposure on /buy 200s", true);

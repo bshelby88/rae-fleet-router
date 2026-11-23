@@ -31,9 +31,17 @@ const CDP_SEC = process.env.CDP_API_KEY_SECRET;
 const HAS_CDP = Boolean(CDP_ID && CDP_SEC);
 const NETWORK = HAS_CDP ? "eip155:8453" : "eip155:84532";
 
-const facilitatorClient = HAS_CDP
-  ? new HTTPFacilitatorClient(require("@coinbase/x402").facilitator)
-  : new HTTPFacilitatorClient({ url: "https://x402.org/facilitator" });
+// BEAN FIX 2026-11-16 (FACILITATOR PAYEE FIXED): server-side verify/settle now uses
+// the fleet's own facilitator — the same URL advertised to buyers in extra.facilitator.
+// Advertise-one, settle-with-another was the root pattern behind the PAYEE_NOT_SERVED_HERE
+// wall: x402-agent-pay.com only settles to its own treasury, so challenges pointing there
+// dead-ended for the canonical treasury 0x9b8a27...f72f.
+// 2026-11-22 (fix wave): network-aware — mainnet settle/verify uses raen-facilitator;
+// the local test harness (no CDP secrets -> eip155:84532 Sepolia) keeps x402.org,
+// the only facilitator that serves testnet, so offline acceptance tests stay runnable.
+const facilitatorClient = new HTTPFacilitatorClient({
+  url: NETWORK === "eip155:84532" ? "https://x402.org/facilitator" : "https://raen-facilitator.fly.dev/facilitator",
+});
 
 const x402Server = new x402ResourceServer(facilitatorClient);
 x402Server.register(NETWORK, new ExactEvmScheme());
@@ -49,7 +57,17 @@ x402Server.register(NETWORK, new ExactEvmScheme());
 // This is buyer-facing metadata ONLY — server-side verify/settle still uses
 // the facilitatorClient configured above. resource.serviceName is the
 // companion field the proven power-pack wall ships in the same pattern.
-const CHALLENGE_FACILITATOR_URL = "https://x402-agent-pay.com/facilitator";
+// 2026-11-22 (fix wave): network-aware for the same reason as the client
+// above. Production (HAS_CDP -> mainnet) ALWAYS advertises and settles through
+// raen-facilitator. The local acceptance-test sandbox runs eip155:84532;
+// x402.org no longer serves Sepolia exact, and the only facilitator verified
+// to serve Sepolia exact (baseline test run, 2026-11-22) is x402-agent-pay —
+// dead-end on MAINNET but harmless in the moneyless local sandbox, where no
+// real payment can ever settle. This value can never ship to production:
+// NETWORK is eip155:8453 there.
+const CHALLENGE_FACILITATOR_URL = NETWORK === "eip155:84532"
+  ? "https://x402-agent-pay.com/facilitator" // LOCAL TEST SANDBOX ONLY — never mainnet
+  : "https://raen-facilitator.fly.dev/facilitator";
 const SERVICE_NAME = "rae-fleet-router";
 
 (async () => {
@@ -648,7 +666,7 @@ const BENCHMARK_SURVEY = {
     settlement_over_tier_usd: 0.001,
     note: "fees are per onchain settlement, not per request; gas is facilitator-paid; no processor or chargeback fees",
   },
-  fleet_facilitator: "https://x402-agent-pay.com/facilitator",
+  fleet_facilitator: "https://raen-facilitator.fly.dev/facilitator",
   usdc_decimals: 6,
   canonical_pay_to: CANONICAL_PAY_TO,
   live_verified_usd: [
@@ -3061,17 +3079,14 @@ async function probeComplianceMember(member) {
   });
 
   // ---------------------------------------------------------------------------
-  // EXEC-41 — 400-before-402 pre-validation for the ladder routes.
-// the handler cannot serve must never see a payment challenge: paying and then
-// hitting the handler's 400 would charge the buyer without service. This
-// middleware is registered ABOVE paymentMiddleware() so invalid requests
-// short-circuit with 400 before the gate (matching suprapack-x402's observed
-// live order and the STRAT-28 §5.1 promise for future pack routes). Scope is
-// strictly the three /api/bundle/<id> ladder routes; valid bodies fall
-// through to the unchanged 402 gate, and the flagship /api/fleet-bundle is
-// untouched here (tracked separately). Validation mirrors the advertised
-// BUNDLE_INPUT_SCHEMA machine contract: topic required (non-empty string);
-// email_subject/email_body optional but type/length-checked when present.
+  // [402-FIRST] BEAN fix wave 2026-11-22 (owner order: lint FAIL fix wave).
+  // The EXEC-41 pre-gate 400-before-402 validation for the three ladder routes
+  // is RETIRED. Fleet law (d) + manifest-lint rule ROUTE_NOT_402: a paid route
+  // must answer an UNPAID probe with 402 — body validation happens AFTER the
+  // gate (makeBundleHandler already 400s invalid bodies post-payment-verify,
+  // so no buyer can ever be charged for a request the handler would reject).
+  // Registered ABOVE paymentMiddleware: only the helpers remain exported for
+  // the test suites; no app.use pre-gate short-circuit anymore.
 const BUNDLE_ID_SET = new Set(BUNDLE_LADDER.map(b => b.id));
 // EXEC-146 — validation is now per-bundle, derived from the SAME requestSchema
 // the route advertises in /.well-known/x402.json (was: hardcoded topic rules
@@ -3112,29 +3127,83 @@ function bundleBodyErrors(body, bundle) {
   }
   return errors;
 }
+// [402-FIRST] (continued) the EXEC-41 pre-gate 400 short-circuit is DELETED
+// here — unpaid POSTs on /api/bundle/<id> now meet the 402 challenge first.
+// Post-payment validation is unchanged inside makeBundleHandler (400 only
+// after the gate verified payment, so nothing is ever charged for a rejected
+// body).
+
+// [402-BODY] BEAN fix wave 2026-11-22 (lint class 402_BODY / QUOTE-01, royal-ruby
+// a22a1d3 pattern): every 402 must carry a machine-readable body — decode the
+// payment-required header challenge into the body (single source of truth =
+// the header) and inject payment_instructions (settle -> retry -> claim flow).
+// Registered BEFORE paymentMiddleware so its res.end hook fires for the
+// middleware's own 402 emission.
+const PAYMENT_INSTRUCTIONS_402 = {
+  step_1: "Settle on-chain: send the exact USDC amount to payTo on eip155:8453 (EIP-3009 transferWithAuthorization, x402 'exact' scheme).",
+  step_2: "REPEAT your original request with header 'x-payment' (or PAYMENT-SIGNATURE) set to the base64 settlement payload from your x402 client. You will then receive the paid response.",
+  already_settled: "If you already settled on-chain but never got your result, claim it at https://settlement-collector.fly.dev/storefront/claims with your tx hash.",
+  docs: "https://bshelby88.github.io/x402-cookbook/",
+};
 app.use((req, res, next) => {
-  if (req.method !== "POST") return next();
-  const m = /^\/api\/bundle\/([^/]+)\/?$/.exec(req.path);
-  if (!m || !BUNDLE_ID_SET.has(m[1])) return next();
-  const bundle = bundleForPath(m[1]);
-  const errors = bundleBodyErrors(req.body, bundle);
-  if (errors.length) {
-    const schema = (bundle && bundle.requestSchema) || BUNDLE_INPUT_SCHEMA;
-    const expected = Object.entries(schema.properties || {})
-      .map(([f, s]) => `${f}${(schema.required || []).includes(f) ? "" : " (optional)"}: ${s.type}${s.minLength ? ` (>=${s.minLength} chars)` : ""}`)
-      .join("; ");
-    return res.status(400).json({
-      ok: false,
-      error: errors.join("; "),
-      charged: false,
-      "x-payment-challenge": false,
-      expected,
-      retry: "Fix the JSON body and re-send UNPAID — 400 responses are never billed. Machine contract: /openapi.json",
-      "x-recovery": "https://rae-fleet-router.fly.dev/pay-failed",
-    });
-  }
+  const origEnd = res.end.bind(res);
+  res.end = function (chunk, encoding, cb) {
+    if (res.statusCode === 402) {
+      try {
+        let text = chunk == null ? "" : String(chunk).trim();
+        const tok = res.getHeader("payment-required");
+        const hasBody = text !== "" && text !== "{}";
+        if (!hasBody && tok) {
+          let b64 = String(tok).replace(/-/g, "+").replace(/_/g, "/");
+          while (b64.length % 4) b64 += "=";
+          text = JSON.stringify(JSON.parse(Buffer.from(b64, "base64").toString("utf8")));
+        }
+        if (text !== "" && text !== "{}") {
+          const parsed = JSON.parse(text);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && !parsed.payment_instructions) {
+            parsed.payment_instructions = PAYMENT_INSTRUCTIONS_402;
+            const body = JSON.stringify(parsed);
+            if (!res.headersSent) {
+              if (!res.getHeader("content-type")) res.setHeader("content-type", "application/json");
+              const cl = res.getHeader("content-length");
+              if (cl) res.setHeader("content-length", Buffer.byteLength(body));
+            }
+            chunk = body;
+            if (typeof encoding === "function") { cb = encoding; encoding = undefined; }
+            else if (encoding == null) encoding = "utf8";
+          }
+        }
+      } catch (_) { /* non-JSON or headerless 402: leave untouched */ }
+    }
+    return origEnd(chunk, encoding, cb);
+  };
   next();
 });
+
+// [GET-TWIN] BEAN fix wave 2026-11-22 (lint class GET_TWIN_MISSING): GET on a
+// paid route must return a machine-readable 402 quote, not Express 404 HTML.
+// Registered BEFORE paymentMiddleware: never settles, never emits a challenge
+// header — body-only quote pointing at the live POST challenge flow.
+function paidRouteQuote(routeKey) {
+  const [method, path] = routeKey.split(" ");
+  const cfg = PAID_ROUTES[routeKey];
+  const accepts = cfg && cfg.accepts;
+  return { ok: false,
+    error: "This x402 resource is paid and read via POST.",
+    quote: { method: "POST", path, scheme: (accepts && accepts.scheme) || "exact",
+      price: (accepts && accepts.price) || null, asset: "USDC",
+      network: (accepts && accepts.network) || NETWORK, payTo: PAY_TO,
+      facilitator: CHALLENGE_FACILITATOR_URL },
+    how_to_pay: `POST JSON (schema at /.well-known/x402.json) WITHOUT payment to receive the 402 challenge (payment-required header AND body with payment_instructions), then resend with the PAYMENT-SIGNATURE header (x402 scheme 'exact', Base eip155:8453).`,
+    manifest: "/.well-known/x402",
+    payment_instructions: PAYMENT_INSTRUCTIONS_402,
+  };
+}
+for (const routeKey of Object.keys(PAID_ROUTES)) {
+  const path = routeKey.split(" ")[1];
+  if (!path.startsWith("/api/")) continue;
+  app.get(path, (_req, res) => res.status(402).json(paidRouteQuote(routeKey)));
+}
 
 app.use(paymentMiddleware(PAID_ROUTES, x402Server, undefined, undefined, false));
 
