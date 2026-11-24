@@ -109,16 +109,16 @@ async function signTypedDataAuth({ domain, types, primaryType, message }) {
 // POST /api/fleet-bundle was silently unbilled. `price` is display-only: callFleetService
 // always pays the live 402 challenge amount.
 const FLEET = {
-  "nft-alpha-x402": { url: "https://nft-alpha-x402.fly.dev/api/nft-signal", price: 20000 },
+  "nft-alpha-x402": { url: "https://nft-alpha-x402.fly.dev/api/nft-signal", price: 5000 },
   "power-pack-x402": { url: "https://power-pack-x402.fly.dev/api/score-email", price: 10000 },
   "tradingagents-x402": { url: "https://tradingagents-x402.fly.dev/api/analyze-ticker", price: 50000 },
   "opensea-data-x402": { url: "https://opensea-data-x402.fly.dev/api", price: 10000 },
-  "suprapack-x402": { url: "https://suprapack-x402.fly.dev/api/find-skill", price: 30000 },
+  "suprapack-x402": { url: "https://suprapack-x402.fly.dev/api/find-skill", price: 5000 },
   "nanobanana-x402": { url: "https://nanobanana-x402.fly.dev/api/generate-image", price: 10000 },
   // EXEC-146 — compliance-kit + full-stack bundle legs (prices verified live
   // from each wall's /.well-known/x402.json on 2026-11-13).
-  "dispute-forge-x402": { url: "https://dispute-forge-x402.fly.dev/api/dispute-pack", price: 750000 },
-  "contract-eye-x402": { url: "https://contract-eye-x402.fly.dev/api/analyze-contract", price: 50000 },
+  "dispute-forge-x402": { url: "https://dispute-forge-x402.fly.dev/api/dispute-pack", price: 10000 },
+  "contract-eye-x402": { url: "https://contract-eye-x402.fly.dev/api/analyze-contract", price: 5000 },
   "vault-pro-x402": { url: "https://vault-pro-x402.fly.dev/api/scaffold-project", price: 50000 },
 };
 
@@ -365,9 +365,9 @@ const COMPLIANCE_INPUT_SCHEMA = {
 };
 
 const bundleRoute = {
-  accepts: { scheme: "exact", price: "$0.07", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
+  accepts: { scheme: "exact", price: "$0.03", network: NETWORK, payTo: PAY_TO, extra: { facilitator: CHALLENGE_FACILITATOR_URL } },
   serviceName: SERVICE_NAME,
-  description: "Compose multiple RAE fleet services into one paid bundle by topic on Base. POST {topic}, receive assembled results from nft-alpha, power-pack, and tradingagents as JSON. $0.07 per call, Base USDC x402.",
+  description: "Compose multiple RAE fleet services into one paid bundle by topic on Base. POST {topic}, receive assembled results from nft-alpha, power-pack, and tradingagents as JSON. $0.03 per call, Base USDC x402.",
   mimeType: "application/json",
   requestSchema: BUNDLE_INPUT_SCHEMA,
   responseSchema: BUNDLE_OUTPUT_SCHEMA,
@@ -394,42 +394,43 @@ const bundleRoute = {
 // ---------------------------------------------------------------------------
 const BUNDLE_LADDER = [
   {
-    id: "market-starter", price: "$0.02",
+    id: "market-starter", price: "$0.01",
     title: "Market Starter",
-    desc: "Get OpenSea raw collection data plus real-time NFT market signals for one collection in a single call. POST {slug/topic}, receive floor/listings/offers/traits + signals as JSON. $0.02 per call, Base USDC x402.",
-    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02]],
+    desc: "Get OpenSea raw collection data plus real-time NFT market signals for one collection in a single call. POST {slug/topic}, receive floor/listings/offers/traits + signals as JSON. $0.01 per call, Base USDC x402.",
+    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.005]],
   },
   {
-    id: "market-intel-trio", price: "$0.05",
+    id: "market-intel-trio", price: "$0.02",
     title: "Market Intel Trio",
-    desc: "Get the flagship starter trio in one call: opensea-data + nft-alpha + suprapack matched skills. POST {slug/topic}, receive data, signals, and skill matches as JSON. $0.05 per call, Base USDC x402.",
-    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03]],
+    desc: "Get the flagship starter trio in one call: opensea-data + nft-alpha + suprapack matched skills. POST {slug/topic}, receive data, signals, and skill matches as JSON. $0.02 per call, Base USDC x402.",
+    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.005], ["suprapack-x402", 0.005]],
   },
   {
-    id: "full-fleet-sampler", price: "$0.06",
+    id: "full-fleet-sampler", price: "$0.03",
     title: "Full Fleet Sampler",
-    desc: "Sample all five sub-$0.03 fleet services in one call: data, signals, skills, image generation, outreach scoring. Receive each service's result as JSON. $0.06 per call, Base USDC x402.",
-    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.02], ["suprapack-x402", 0.03], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
+    desc: "Sample all five sub-$0.03 fleet services in one call: data, signals, skills, image generation, outreach scoring. Receive each service's result as JSON. $0.03 per call, Base USDC x402.",
+    parts: [["opensea-data-x402", 0.01], ["nft-alpha-x402", 0.005], ["suprapack-x402", 0.005], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
   },
   {
-    // EXEC-146 — parts priced from live /.well-known/x402.json (2026-11-13):
-    // dispute-forge $0.75 + contract-eye $0.05 = $0.80 sum-of-parts.
-    id: "compliance-kit", price: "$0.69", ceiling: 0.85,
+    // Nov-24 owner-approved ladder: compliance-kit held as the human-grade
+    // tier at $0.35 (parts repriced to machine band: dispute-forge $0.01 +
+    // contract-eye $0.005); priced above parts by design for the bundled
+    // compliance workup, not a below-sum bundle.
+    id: "compliance-kit", price: "$0.35", ceiling: 0.85,
     title: "Compliance Kit",
-    desc: "Run a compliance pass in one call: forge an evidence-grade credit dispute pack AND analyze contract text for renewal/liability traps. POST {creditor, text, reason?, focus?}, receive dispute pack + contract findings as JSON. $0.69 per call, Base USDC x402.",
-    parts: [["dispute-forge-x402", 0.75], ["contract-eye-x402", 0.05]],
+    desc: "Run a compliance pass in one call: forge an evidence-grade credit dispute pack AND analyze contract text for renewal/liability traps. POST {creditor, text, reason?, focus?}, receive dispute pack + contract findings as JSON. $0.35 per call, Base USDC x402.",
+    parts: [["dispute-forge-x402", 0.01], ["contract-eye-x402", 0.005]],
     requiredFields: ["creditor", "text"],
     requestSchema: COMPLIANCE_INPUT_SCHEMA,
     input: { creditor: "Acme Collections LLC", reason: "Debt is not mine / inaccurate reporting", text: "This agreement auto-renews every twelve months unless cancelled sixty days prior." },
   },
   {
-    // EXEC-146 — parts priced from live manifests (2026-11-13): tradingagents
-    // $0.05 + vault-pro $0.05 + suprapack $0.03 + nft-alpha $0.02 +
-    // nanobanana $0.01 + power-pack $0.01 = $0.17 sum-of-parts.
-    id: "full-stack", price: "$0.09", ceiling: 0.20,
+    // Nov-24 owner-approved ladder: full-stack re-anchored to $0.04
+    // (parts repriced to machine band; sum-of-parts now $0.13).
+    id: "full-stack", price: "$0.04", ceiling: 0.20,
     title: "Full Stack",
-    desc: "The whole dev/agent stack in one call: market signals, ticker analysis, skill match, image, outreach scoring, and a scaffolded project plan. POST {topic, goal?}, receive all six results as JSON. $0.09 per call, Base USDC x402.",
-    parts: [["tradingagents-x402", 0.05], ["vault-pro-x402", 0.05], ["suprapack-x402", 0.03], ["nft-alpha-x402", 0.02], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
+    desc: "The whole dev/agent stack in one call: market signals, ticker analysis, skill match, image, outreach scoring, and a scaffolded project plan. POST {topic, goal?}, receive all six results as JSON. $0.04 per call, Base USDC x402.",
+    parts: [["tradingagents-x402", 0.05], ["vault-pro-x402", 0.05], ["suprapack-x402", 0.005], ["nft-alpha-x402", 0.005], ["nanobanana-x402", 0.01], ["power-pack-x402", 0.01]],
     input: { topic: "Azuki", goal: "Launch a token-gated community research sprint" },
   },
 ];
@@ -488,10 +489,10 @@ function pricingMarkdown() {
     "",
     "## Flagship",
     "",
-    "- **`POST /api/fleet-bundle`** — $0.07 USDC — compose nft-alpha + power-pack + tradingagents",
+    "- **`POST /api/fleet-bundle`** — $0.03 USDC — compose nft-alpha + power-pack + tradingagents",
     "  into one research call.",
     "",
-    "## Bundle ladder (each bundle priced below the sum of its parts)",
+    "## Bundle ladder (Nov-24 owner-approved prices; most bundles below sum-of-parts)",
     "",
     "| Endpoint | Parts (live per-call price) | Sum of parts | Bundle price | What you get |",
     "|---|---|---|---|---|",
@@ -756,7 +757,7 @@ function benchmarksMarkdown() {
 function registerDiscoveryEndpoints(serverApp, routes, serviceInfo) {
   const x402Manifest = { version: "2.0.0", service: { name: serviceInfo.name, description: serviceInfo.description, contact: "jadedfocus@gmail.com", operator: "Royal Agentic Enterprises" }, endpoints: {} };
   const openapi = { openapi: "3.1.0", info: { title: serviceInfo.title, description: serviceInfo.description, version: "1.0.0", contact: { email: "jadedfocus@gmail.com" },
-    "x-guidance": "Call POST /api/fleet-bundle with JSON {topic: string, email_subject?: string, email_body?: string} to get a bundled research result from multiple RAE fleet services (nft-alpha, power-pack, tradingagents). Price $0.07 USDC on Base (eip155:8453) per call, pay-per-call via x402. Buyer owns signing; set a per-call spend ceiling; do not auto-retry paid calls." },
+    "x-guidance": "Call POST /api/fleet-bundle with JSON {topic: string, email_subject?: string, email_body?: string} to get a bundled research result from multiple RAE fleet services (nft-alpha, power-pack, tradingagents). Price $0.03 USDC on Base (eip155:8453) per call, pay-per-call via x402. Buyer owns signing; set a per-call spend ceiling; do not auto-retry paid calls." },
     paths: {} };
   openapi.paths["/pay-failed"] = {
     get: {
@@ -899,7 +900,7 @@ function sampleJson() {
       x402_manifest: "GET /.well-known/x402.json",
       payment_failure_recovery: "GET /pay-failed (markdown) or /pay-failed?format=json",
       buy_links: "GET /buy — hosted pay-link page per fleet service (embedded PaymentRequirements)",
-      flagship: "POST /api/fleet-bundle — $0.07 USDC (nft-alpha + power-pack + tradingagents)",
+      flagship: "POST /api/fleet-bundle — $0.03 USDC (nft-alpha + power-pack + tradingagents)",
       bundle_ladder: BUNDLE_LADDER.map((b) => ({ endpoint: `POST /api/bundle/${b.id}`, price: b.price, desc: b.desc })),
     },
   };
@@ -936,7 +937,7 @@ function agentCardJson(req) {
     },
     ...BUNDLE_LADDER.map((b) => ({
       id: `bundle-${b.id}`, name: `Bundle: ${b.id}`,
-      description: `${b.desc} ${b.price} USDC on Base via x402 v2 (bundle priced below the sum of its live per-call parts).`,
+      description: `${b.desc} ${b.price} USDC on Base via x402 v2 (Nov-24 owner-approved bundle ladder price).`,
       tags: ["bundle", "x402", "usdc", "base", "agent-to-agent"],
       examples: [`POST /api/bundle/${b.id} with a topic keyword — ${b.desc}`],
     })),
@@ -973,7 +974,7 @@ function agentCardJson(req) {
 }
 function a2aGuideText() {
   const ladder = BUNDLE_LADDER.map((b) => `- POST /api/bundle/${b.id} — ${b.price} USDC: ${b.desc}`).join("\n");
-  return `RAE Fleet Router (Royal Agentic Enterprises) — 17 live x402 service walls on Base mainnet, USDC per-call, no API key. Paid here: POST /api/fleet-bundle $0.07 (nft-alpha + power-pack + tradingagents). ${ladder}. Free surfaces: /sample (shape-accurate demo), /pricing.md, /.well-known/x402.json (machine pricing), /pay-failed (recovery recipes). To pay: POST unpaid, decode the 402 PAYMENT-REQUIRED header, sign a USDC EIP-3009 transferWithAuthorization, re-send with PAYMENT-SIGNATURE. The live challenge is authoritative — prices there beat this text.`;
+  return `RAE Fleet Router (Royal Agentic Enterprises) — 17 live x402 service walls on Base mainnet, USDC per-call, no API key. Paid here: POST /api/fleet-bundle $0.03 (nft-alpha + power-pack + tradingagents). ${ladder}. Free surfaces: /sample (shape-accurate demo), /pricing.md, /.well-known/x402.json (machine pricing), /pay-failed (recovery recipes). To pay: POST unpaid, decode the 402 PAYMENT-REQUIRED header, sign a USDC EIP-3009 transferWithAuthorization, re-send with PAYMENT-SIGNATURE. The live challenge is authoritative — prices there beat this text.`;
 }
 app.get(["/.well-known/agent-card.json", "/.well-known/agent.json"], (req, res) => {
   res.set("Cache-Control", "public, max-age=60");
@@ -2035,7 +2036,7 @@ app.get("/buy/:slug", async (req, res) => {
                         <h3><a href="/buy/bundle/${escHtml(b.id)}">${escHtml(b.title)}</a></h3>
                         <p class="e-tags"><span class="e-tag">bundle</span></p>
                         <p class="e-desc">${escHtml(b.desc)}</p>
-                        <p class="e-price">${escHtml(b.price)} USDC &middot; <span style="text-decoration:line-through;color:#666">$${sum.toFixed(2)}</span> &middot; saves $${(sum - price).toFixed(2)}</p>
+                        <p class="e-price">${escHtml(b.price)} USDC${sum > price ? ` &middot; <span style="text-decoration:line-through;color:#666">$${sum.toFixed(2)}</span> &middot; saves $${(sum - price).toFixed(2)}` : ""}</p>
                         <p class="e-ep"><code>${escHtml(partsLabel)}</code></p>
                         <button class="e-curl-btn" data-curl="${escHtml(curlCmd)}" onclick="toggleCurl(this)">Copy curl</button>
                         <pre class="e-curl-box" style="display:none">${escHtml(curlCmd)}</pre>
@@ -2563,10 +2564,10 @@ const TERMS_MD = [
   "",
   "| Wall | Endpoint | Price (USDC) |",
   "|---|---|---|",
-  "| rae-fleet-router.fly.dev | POST /api/fleet-bundle | $0.07 |",
-  "| rae-fleet-router.fly.dev | POST /api/bundle/market-starter | $0.02 |",
-  "| rae-fleet-router.fly.dev | POST /api/bundle/market-intel-trio | $0.05 |",
-  "| rae-fleet-router.fly.dev | POST /api/bundle/full-fleet-sampler | $0.06 |",
+  "| rae-fleet-router.fly.dev | POST /api/fleet-bundle | $0.03 |",
+  "| rae-fleet-router.fly.dev | POST /api/bundle/market-starter | $0.01 |",
+  "| rae-fleet-router.fly.dev | POST /api/bundle/market-intel-trio | $0.02 |",
+  "| rae-fleet-router.fly.dev | POST /api/bundle/full-fleet-sampler | $0.03 |",
   "| dispatch-x402.fly.dev | POST /dispatch | $0.50 |",
   "| dispute-forge-x402.fly.dev | POST /api/dispute-pack | $0.75 |",
   "| escrow-x402.fly.dev | POST /api/escrow/create | $0.05 |",

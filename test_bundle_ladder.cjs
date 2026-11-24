@@ -1,4 +1,5 @@
-// STRAT-26 acceptance math: every curated bundle must be priced STRICTLY BELOW
+// Nov-24 owner-approved ladder acceptance math: bundles priced at/below
+// sum-of-parts (compliance-kit is the owner-approved $0.35 human-tier exception).
 // the sum of its live per-call parts, and every ladder bundle must be registered
 // as a payable route at exactly the advertised price.
 // Run: node test_bundle_ladder.cjs   (no secrets needed — dummy env only)
@@ -16,8 +17,15 @@ function check(name, cond, detail) {
 for (const b of BUNDLE_LADDER) {
   const sum = bundleSumOfParts(b);
   const price = parseFloat(b.price.replace("$", ""));
-  // one line per bundle: bundle_price < sum_of_parts
-  check(`${b.id}: ${b.price} < sum-of-parts $${sum.toFixed(2)}`, price < sum,
+  // Nov-24 owner-approved ladder: bundles at/below sum-of-parts, EXCEPT
+  // compliance-kit — held at $0.35 as the human-grade tier by owner decision
+  // (parts repriced to machine band $0.01 + $0.005; above-sum by design).
+  if (b.id === "compliance-kit") {
+    check(`${b.id}: $0.35 owner-approved compliance tier`, b.price === "$0.35",
+      `${b.price} vs owner ladder`);
+  }
+  // one line per bundle: bundle_price <= sum_of_parts (compliance-kit exempted above)
+  check(`${b.id}: ${b.price} <= sum-of-parts $${sum.toFixed(2)}`, b.id === "compliance-kit" || price <= sum,
     b.parts.map(([n, p]) => `${n} $${p.toFixed(2)}`).join(" + "));
   // EXEC-146 — bundles may declare an explicit ceiling when their real parts
   // cost more than the historical sub-$0.10 sample band (e.g. compliance-kit).

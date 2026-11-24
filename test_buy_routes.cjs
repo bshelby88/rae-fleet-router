@@ -77,7 +77,7 @@ FIXTURES["nft-alpha-x402"] = manifest("nft-alpha-x402", "Pay $0.02 USDC, get rea
 FIXTURES["power-pack-x402"] = manifest("power-pack", "Score an outreach email.",
   ep("$0.01", "/api/score-email", "Score an outreach email: subject/body quality, spam risk.", { subject: "Hi", body: "Quick question about your product." }));
 FIXTURES["rae-fleet-router"] = manifest("rae-fleet-router", "Compose multiple RAE fleet services into one paid bundle.",
-  ep("$0.10", "/api/fleet-bundle", "Compose nft-alpha + power-pack + tradingagents into one paid research call.", { topic: "Azuki" }),
+  ep("$0.03", "/api/fleet-bundle", "Compose nft-alpha + power-pack + tradingagents into one paid research call.", { topic: "Azuki" }),
   ep("$0.02", "/api/bundle/market-starter", "OpenSea data + NFT market signals.", { topic: "Azuki" }),
   ep("$0.05", "/api/bundle/market-intel-trio", "Starter trio bundle.", { topic: "Azuki" }),
   ep("$0.06", "/api/bundle/full-fleet-sampler", "Five sub-$0.03 services in one call.", { topic: "Azuki" }));
